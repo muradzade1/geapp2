@@ -63,12 +63,8 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: az.mys.genclerplatformasi
-      vars:
-        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
-        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
-      groups:
-        - appstore_credentials
+      integrations:
+        app_store_connect: gencler_appstore_connect
     triggering:
       events:
         - tag
@@ -107,5 +103,6 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
+        integration: gencler_appstore_connect
         beta_groups:
           - Daxili test qrupu
