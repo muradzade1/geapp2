@@ -28,12 +28,29 @@ workflows:
       - name: Add/verify iOS platform
         script: |
           rm -rf ios
+
+          # @capacitor/ios paketinin mövcudluğunu təmin edirik.
+          # Bu paket olmadan `cap add ios` Podfile daxil olmaqla
+          # native layihəni düzgün yarada bilmir.
+          if ! npm ls @capacitor/ios >/dev/null 2>&1; then
+            echo "==> @capacitor/ios tapılmadı, quraşdırılır..."
+            npm install @capacitor/ios --no-save
+          fi
+
           npx cap add ios
           npx cap sync ios
+
           echo "==> ios/App qovluğunun məzmunu:"
           ls -la ios/App || echo "XƏTA: ios/App qovluğu yaranmadı!"
+
           echo "==> Podfile axtarılır:"
           find ios -maxdepth 3 -name "Podfile" || echo "XƏTA: Podfile tapılmadı!"
+
+          # Podfile hələ də yoxdursa, build-i aydın mesajla dayandırırıq
+          if [ ! -f ios/App/Podfile ]; then
+            echo "XƏTA: ios/App/Podfile yaradılmadı. capacitor.config faylını və @capacitor/ios paketini yoxlayın."
+            exit 1
+          fi
       - name: Install CocoaPods dependencies
         script: |
           cd ios/App && pod install
@@ -83,9 +100,20 @@ workflows:
           npm run build
       - name: Sync iOS platform
         script: |
+          if ! npm ls @capacitor/ios >/dev/null 2>&1; then
+            echo "==> @capacitor/ios tapılmadı, quraşdırılır..."
+            npm install @capacitor/ios --no-save
+          fi
+
           npx cap sync ios
+
           echo "==> Podfile axtarılır:"
           find ios -maxdepth 3 -name "Podfile" || echo "XƏTA: Podfile tapılmadı!"
+
+          if [ ! -f ios/App/Podfile ]; then
+            echo "XƏTA: ios/App/Podfile yaradılmadı. capacitor.config faylını və @capacitor/ios paketini yoxlayın."
+            exit 1
+          fi
       - name: Install CocoaPods dependencies
         script: |
           cd ios/App && pod install
