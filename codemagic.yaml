@@ -43,26 +43,45 @@ workflows:
           echo "==> ios/App qovluğunun məzmunu:"
           ls -la ios/App || echo "XƏTA: ios/App qovluğu yaranmadı!"
 
-          echo "==> Podfile axtarılır:"
-          find ios -maxdepth 3 -name "Podfile" || echo "XƏTA: Podfile tapılmadı!"
-
-          # Podfile hələ də yoxdursa, build-i aydın mesajla dayandırırıq
-          if [ ! -f ios/App/Podfile ]; then
-            echo "XƏTA: ios/App/Podfile yaradılmadı. capacitor.config faylını və @capacitor/ios paketini yoxlayın."
+          # Bu layihə Capacitor-un Swift Package Manager (SPM) inteqrasiyasını
+          # istifadə edir (CapApp-SPM qovluğu və Package.swift buna dəlildir).
+          # Bu halda Podfile YARANMIR və pod install lazım deyil —
+          # build birbaşa .xcodeproj üzərindən gedir.
+          if [ -f ios/App/Podfile ]; then
+            echo "==> CocoaPods aşkarlandı (Podfile var)."
+          elif [ -d ios/App/CapApp-SPM ]; then
+            echo "==> Swift Package Manager (SPM) aşkarlandı — Podfile/pod install lazım deyil."
+          else
+            echo "XƏTA: nə Podfile, nə də CapApp-SPM tapılmadı. iOS platforması düzgün yaradılmayıb."
             exit 1
           fi
-      - name: Install CocoaPods dependencies
+      - name: Install CocoaPods dependencies (yalnız CocoaPods istifadə olunarsa)
         script: |
-          cd ios/App && pod install
+          if [ -f ios/App/Podfile ]; then
+            cd ios/App && pod install
+          else
+            echo "==> Podfile yoxdur (SPM istifadə olunur), bu addım ötürülür."
+          fi
       - name: Build for iOS Simulator (no signing needed)
         script: |
           cd ios/App
-          xcodebuild build \
-            -workspace App.xcworkspace \
-            -scheme App \
-            -sdk iphonesimulator \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO
+          if [ -f App.xcworkspace/contents.xcworkspacedata ]; then
+            echo "==> App.xcworkspace ilə build edilir (CocoaPods)"
+            xcodebuild build \
+              -workspace App.xcworkspace \
+              -scheme App \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO
+          else
+            echo "==> App.xcodeproj ilə build edilir (SPM)"
+            xcodebuild build \
+              -project App.xcodeproj \
+              -scheme App \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO
+          fi
     artifacts:
       - ios/App/build/**/*.app
 
@@ -107,16 +126,23 @@ workflows:
 
           npx cap sync ios
 
-          echo "==> Podfile axtarılır:"
-          find ios -maxdepth 3 -name "Podfile" || echo "XƏTA: Podfile tapılmadı!"
-
-          if [ ! -f ios/App/Podfile ]; then
-            echo "XƏTA: ios/App/Podfile yaradılmadı. capacitor.config faylını və @capacitor/ios paketini yoxlayın."
+          # Bu layihə Capacitor SPM inteqrasiyasını istifadə edə bilər —
+          # bu halda Podfile yaranmır, CapApp-SPM qovluğu yaranır.
+          if [ -f ios/App/Podfile ]; then
+            echo "==> CocoaPods aşkarlandı (Podfile var)."
+          elif [ -d ios/App/CapApp-SPM ]; then
+            echo "==> Swift Package Manager (SPM) aşkarlandı — Podfile/pod install lazım deyil."
+          else
+            echo "XƏTA: nə Podfile, nə də CapApp-SPM tapılmadı. iOS platforması düzgün yaradılmayıb."
             exit 1
           fi
-      - name: Install CocoaPods dependencies
+      - name: Install CocoaPods dependencies (yalnız CocoaPods istifadə olunarsa)
         script: |
-          cd ios/App && pod install
+          if [ -f ios/App/Podfile ]; then
+            cd ios/App && pod install
+          else
+            echo "==> Podfile yoxdur (SPM istifadə olunur), bu addım ötürülür."
+          fi
       - name: Set up code signing
         script: |
           xcode-project use-profiles
@@ -126,9 +152,18 @@ workflows:
           agvtool new-version -all $(($(app-store-connect get-latest-app-store-build-number "az.mys.genclerplatformasi") + 1))
       - name: Build ipa for release
         script: |
-          xcode-project build-ipa \
-            --workspace "ios/App/App.xcworkspace" \
-            --scheme "App"
+          cd ios/App
+          if [ -f App.xcworkspace/contents.xcworkspacedata ]; then
+            echo "==> App.xcworkspace ilə build edilir (CocoaPods)"
+            xcode-project build-ipa \
+              --workspace "App.xcworkspace" \
+              --scheme "App"
+          else
+            echo "==> App.xcodeproj ilə build edilir (SPM)"
+            xcode-project build-ipa \
+              --project "App.xcodeproj" \
+              --scheme "App"
+          fi
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
