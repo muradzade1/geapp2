@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gənclər Evi</string>
+    <string name="title_activity_main">Gənclər Evi</string>
+    <string name="package_name">az.mys.genclerplatformasi</string>
+    <string name="custom_url_scheme">az.mys.genclerplatformasi</string>
+</resources>
