@@ -1,0 +1,111 @@
+workflows:
+  # ─────────────────────────────────────────────────────────
+  # 1) YOXLAMA BUILD-İ — Apple Developer hesabı təsdiqlənənə qədər
+  #    Signing YOXDUR, sadəcə iOS layihəsinin düzgün build olduğunu
+  #    yoxlamaq üçündür (simulator üçün build).
+  # ─────────────────────────────────────────────────────────
+  ios-verify:
+    name: iOS Verify Build (unsigned)
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm ci
+      - name: Build web assets
+        script: |
+          npm run build
+      - name: Add/verify iOS platform
+        script: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+          npx cap sync ios
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios/App && pod install
+      - name: Build for iOS Simulator (no signing needed)
+        script: |
+          cd ios/App
+          xcodebuild build \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
+    artifacts:
+      - ios/App/build/**/*.app
+
+  # ─────────────────────────────────────────────────────────
+  # 2) RELEASE BUILD — Apple Developer Program təsdiqləndikdən
+  #    və Codemagic-də "iOS code signing" (App Store Connect API
+  #    key) inteqrasiyası qurulduqdan SONRA aktivləşdiriləcək.
+  #    Hazırda referans/hazır vəziyyətdə saxlanılır.
+  # ─────────────────────────────────────────────────────────
+  ios-release:
+    name: iOS Release (TestFlight)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: az.mys.genclerplatformasi
+      vars:
+        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
+        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
+      groups:
+        - appstore_credentials
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'ios-*'
+          include: true
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm ci
+      - name: Build web assets
+        script: |
+          npm run build
+      - name: Sync iOS platform
+        script: |
+          npx cap sync ios
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios/App && pod install
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          cd ios/App
+          agvtool new-version -all $(($(app-store-connect get-latest-app-store-build-number "az.mys.genclerplatformasi") + 1))
+      - name: Build ipa for release
+        script: |
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Daxili test qrupu
