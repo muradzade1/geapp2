@@ -30,6 +30,10 @@ workflows:
           rm -rf ios
           npx cap add ios
           npx cap sync ios
+          echo "==> ios/App qovluğunun məzmunu:"
+          ls -la ios/App || echo "XƏTA: ios/App qovluğu yaranmadı!"
+          echo "==> Podfile axtarılır:"
+          find ios -maxdepth 3 -name "Podfile" || echo "XƏTA: Podfile tapılmadı!"
       - name: Install CocoaPods dependencies
         script: |
           cd ios/App && pod install
@@ -80,6 +84,8 @@ workflows:
       - name: Sync iOS platform
         script: |
           npx cap sync ios
+          echo "==> Podfile axtarılır:"
+          find ios -maxdepth 3 -name "Podfile" || echo "XƏTA: Podfile tapılmadı!"
       - name: Install CocoaPods dependencies
         script: |
           cd ios/App && pod install
