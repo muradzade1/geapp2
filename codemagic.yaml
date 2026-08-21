@@ -63,8 +63,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: az.mys.genclerplatformasi
-      integrations:
-        app_store_connect: gencler_appstore_connect
     triggering:
       events:
         - tag
@@ -103,6 +101,3 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        integration: gencler_appstore_connect
-        beta_groups:
-          - Daxili test qrupu
