@@ -6,6 +6,9 @@ import { YOUTH_HOUSES } from '../../data/youthHouseList';
 type AccountRole = 'youth' | 'trainer' | 'youth_house' | 'admin';
 type Screen = 'login' | 'register-choice' | 'register-form';
 
+// Şifrə yeniləmə linki həmişə veb saytı açmalıdır (mobil tətbiqin daxili ünvanı telefonun brauzerində açılmır).
+const WEB_URL = 'https://genclerevi.netlify.app';
+
 interface AuthFlowProps {
   initialRole: AccountRole;
   onBack: () => void;
@@ -25,10 +28,24 @@ const roleOptions = [
 ];
 
 function Field({ label, name, type = 'text', required = true, value, onChange, placeholder, children }: { label: string; name: string; type?: string; required?: boolean; value: string; onChange: (value: string) => void; placeholder?: string; children?: ReactNode }) {
+  const [isComposing, setIsComposing] = useState(false);
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-semibold text-gray-700">{label}</span>
-      {children ?? <input name={name} type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50" />}
+      {children ?? (
+        <input
+          name={name}
+          type={type}
+          required={required}
+          value={value}
+          onChange={(event) => { if (!isComposing) onChange(event.target.value); }}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={(event) => { setIsComposing(false); onChange((event.target as HTMLInputElement).value); }}
+          onBlur={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+        />
+      )}
     </label>
   );
 }
@@ -58,7 +75,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     resetFeedback();
     setBusy(true);
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email: (values.email ?? '').trim(),
+      email: (values.email ?? '').trim().toLowerCase(),
       password: values.password ?? '',
     });
     if (signInError || !signInData.session) {
@@ -89,15 +106,24 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
   };
 
   const resetPassword = async () => {
-    if (!(values.email ?? '').trim()) {
+    const email = (values.email ?? '').trim().toLowerCase();
+    if (!email) {
       setError('Şifrəni yeniləmək üçün e-poçt ünvanınızı daxil edin.');
       return;
     }
     resetFeedback();
     setBusy(true);
-    await supabase.auth.resetPasswordForEmail(values.email.trim(), { redirectTo: window.location.origin });
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: WEB_URL });
     setBusy(false);
-    setMessage('Bu e-poçt qeydiyyatlıdırsa, şifrəni yeniləmə məlumatı göndərildi.');
+    if (resetError) {
+      if (resetError.status === 429 || /rate limit/i.test(resetError.message)) {
+        setError('Çox sayda sorğu göndərilib. Bir neçə dəqiqə sonra yenidən cəhd edin.');
+      } else {
+        setError('Şifrə yeniləmə məktubunu göndərmək mümkün olmadı. Bir az sonra yenidən cəhd edin.');
+      }
+      return;
+    }
+    setMessage('Bu e-poçt qeydiyyatlıdırsa, şifrəni yeniləmə məktubu göndərildi. Məktubdakı linki telefonun brauzerində açın, spam qovluğuna da baxın.');
   };
 
   const register = async (event: FormEvent) => {
@@ -122,6 +148,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
       city: values.city,
       address: values.address,
       birthDate: values.birthDate,
+      gender: values.gender,
       youthHouseName: values.youthHouseName,
       specialization: values.specialization,
       teachingDirection: values.teachingDirection,
@@ -165,13 +192,28 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
 
   const input = (label: string, name: string, type = 'text', required = true, placeholder?: string) => <Field key={name} label={label} name={name} type={type} required={required} value={values[name] ?? ''} onChange={setValue(setValues, name)} placeholder={placeholder} />;
 
+  const genderSelect = (
+    <Field key="gender" label="Cins" name="gender" required={false} value={values.gender ?? ''} onChange={setValue(setValues, 'gender')}>
+      <select
+        name="gender"
+        value={values.gender ?? ''}
+        onChange={(event) => setValue(setValues, 'gender')(event.target.value)}
+        className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+      >
+        <option value="">Seçin (istəyə bağlı)...</option>
+        <option value="kişi">Kişi</option>
+        <option value="qadın">Qadın</option>
+      </select>
+    </Field>
+  );
+
   const renderRegistrationFields = () => {
     const common = <>
       <div className="grid gap-4 sm:grid-cols-2">{input('Ad', 'firstName')}{input('Soyad', 'lastName')}</div>
       <div className="grid gap-4 sm:grid-cols-2">{input('E-poçt', 'email', 'email')}{input('Mobil telefon', 'phone', 'tel')}</div>
       <div className="grid gap-4 sm:grid-cols-2">{input('Şifrə', 'password', 'password')}{input('Şifrənin təkrarı', 'passwordConfirmation', 'password')}</div>
     </>;
-    if (role === 'youth') return <>{common}<div className="grid gap-4 sm:grid-cols-2">{input('Doğum tarixi', 'birthDate', 'date')}{input('Şəhər/Rayon', 'city')}</div>{houseSelect('Gənclər Evi', 'youthHouseName')}</>;
+    if (role === 'youth') return <>{common}<div className="grid gap-4 sm:grid-cols-2">{input('Doğum tarixi', 'birthDate', 'date')}{input('Şəhər/Rayon', 'city')}</div>{genderSelect}{houseSelect('Gənclər Evi', 'youthHouseName')}</>;
     if (role === 'trainer') return <>{common}{input('İxtisas', 'specialization')}{input('Tədris istiqaməti', 'teachingDirection')}{input('İş yeri', 'workplace')}{input('İş təcrübəsi', 'workExperience')}<Field label="Qısa bio" name="bio" required={false} value={values.bio ?? ''} onChange={setValue(setValues, 'bio')}><textarea name="bio" value={values.bio ?? ''} onChange={(event) => setValue(setValues, 'bio')(event.target.value)} rows={3} className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50" /></Field></>;
     return <>{houseSelect('Gənclər Evinin adı', 'houseName')}{input('Şəhər/Rayon', 'city')}{input('Ünvan', 'address')}{input('Telefon', 'phone', 'tel')}{input('E-poçt', 'email', 'email')}{input('Məsul şəxsin adı və soyadı', 'responsibleName')}{input('Məsul şəxsin e-poçtu', 'responsibleEmail', 'email')}<div className="grid gap-4 sm:grid-cols-2">{input('Şifrə', 'password', 'password')}{input('Şifrənin təkrarı', 'passwordConfirmation', 'password')}</div><input type="hidden" value={values.houseName ?? ''} />{!values.firstName && <input type="hidden" />}</>;
   };

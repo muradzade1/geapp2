@@ -1,13 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from './lib/supabase';
 import { ProfileProvider, useProfile } from './lib/profile';
 import { RoleEntry } from './components/RoleEntry/RoleEntry';
 import { AuthFlow } from './components/Auth/AuthFlow';
+import { ResetPasswordScreen } from './components/Auth/ResetPasswordScreen';
 import { YouthApp } from './components/Youth/YouthApp';
 import { YouthHouseApp } from './components/YouthHouseStaff/YouthHouseApp';
 import { TrainerApp } from './components/TrainerDashboard/TrainerApp';
 import AdminApp from './components/Admin/AdminApp';
 
 type AccountRole = 'youth' | 'trainer' | 'youth_house' | 'admin';
+
+// Şifrə bərpa linki saytı açanda ünvanda "type=recovery" olur. Supabase bu parametrləri
+// təmizləməmişdən əvvəl, modul yüklənəndə oxuyuruq.
+const urlParams = typeof window === 'undefined' ? '' : `${window.location.hash}&${window.location.search}`;
+const STARTED_IN_RECOVERY = /type=recovery/.test(urlParams);
+const RECOVERY_LINK_ERROR = /error_code=(otp_expired|access_denied)|error=access_denied/.test(urlParams);
+
+function clearUrlParams() {
+  try {
+    window.history.replaceState(null, '', window.location.pathname);
+  } catch {
+    /* ignore */
+  }
+}
 
 function StatusScreen({ title, description, onBack }: { title: string; description: string; onBack: () => void }) {
   return (
@@ -27,6 +43,34 @@ function AppShell() {
   const { session, profile, loading, signOut } = useProfile();
   const [screen, setScreen] = useState<'landing' | 'auth'>('landing');
   const [requestedRole, setRequestedRole] = useState<AccountRole>('youth');
+  const [recovery, setRecovery] = useState(STARTED_IN_RECOVERY && !RECOVERY_LINK_ERROR);
+  const [linkExpired, setLinkExpired] = useState(RECOVERY_LINK_ERROR);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  if (linkExpired) {
+    return (
+      <StatusScreen
+        title="Linkin müddəti bitib"
+        description={'Şifrə yeniləmə linki köhnəlib və ya artıq istifadə olunub. Giriş səhifəsində "Şifrəni unutmusunuz?" seçərək yeni link sifariş edin.'}
+        onBack={() => { clearUrlParams(); setLinkExpired(false); setScreen('auth'); }}
+      />
+    );
+  }
+
+  if (recovery) {
+    return (
+      <ResetPasswordScreen
+        onDone={() => { clearUrlParams(); setRecovery(false); }}
+        onCancel={() => { clearUrlParams(); setRecovery(false); void supabase.auth.signOut(); }}
+      />
+    );
+  }
 
   if (loading) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-600">Yüklənir...</div>;
