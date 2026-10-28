@@ -1,8 +1,7 @@
 workflows:
   # ─────────────────────────────────────────────────────────
-  # 1) YOXLAMA BUILD-İ — Apple Developer hesabı təsdiqlənənə qədər
-  #    Signing YOXDUR, sadəcə iOS layihəsinin düzgün build olduğunu
-  #    yoxlamaq üçündür (simulator üçün build).
+  # 1) YOXLAMA BUILD-İ — signing YOXDUR, simulator üçün build.
+  #    Hər main push-da işləyir. iOS layihəsinin düzgün qurulduğunu yoxlayır.
   # ─────────────────────────────────────────────────────────
   ios-verify:
     name: iOS Verify Build (unsigned)
@@ -29,9 +28,6 @@ workflows:
         script: |
           rm -rf ios
 
-          # @capacitor/ios paketinin mövcudluğunu təmin edirik.
-          # Bu paket olmadan `cap add ios` Podfile daxil olmaqla
-          # native layihəni düzgün yarada bilmir.
           if ! npm ls @capacitor/ios >/dev/null 2>&1; then
             echo "==> @capacitor/ios tapılmadı, quraşdırılır..."
             npm install @capacitor/ios --no-save
@@ -43,10 +39,6 @@ workflows:
           echo "==> ios/App qovluğunun məzmunu:"
           ls -la ios/App || echo "XƏTA: ios/App qovluğu yaranmadı!"
 
-          # Bu layihə Capacitor-un Swift Package Manager (SPM) inteqrasiyasını
-          # istifadə edir (CapApp-SPM qovluğu və Package.swift buna dəlildir).
-          # Bu halda Podfile YARANMIR və pod install lazım deyil —
-          # build birbaşa .xcodeproj üzərindən gedir.
           if [ -f ios/App/Podfile ]; then
             echo "==> CocoaPods aşkarlandı (Podfile var)."
           elif [ -d ios/App/CapApp-SPM ]; then
@@ -86,10 +78,11 @@ workflows:
       - ios/App/build/**/*.app
 
   # ─────────────────────────────────────────────────────────
-  # 2) RELEASE BUILD — Apple Developer Program təsdiqləndikdən
-  #    və Codemagic-də "iOS code signing" (App Store Connect API
-  #    key) inteqrasiyası qurulduqdan SONRA aktivləşdiriləcək.
-  #    Hazırda referans/hazır vəziyyətdə saxlanılır.
+  # 2) RELEASE BUILD — App Store Connect-ə (TestFlight) göndərir.
+  #    Codemagic-də "gencler_appstore_connect" adlı App Store Connect
+  #    API inteqrasiyası qurulmalıdır.
+  #    İşə salmaq: Codemagic-də "Start new build" → ios-release,
+  #    və ya:  git tag ios-1 && git push origin ios-1
   # ─────────────────────────────────────────────────────────
   ios-release:
     name: iOS Release (TestFlight)
@@ -117,23 +110,33 @@ workflows:
       - name: Build web assets
         script: |
           npm run build
+      - name: Create iOS platform
+        script: |
+          rm -rf ios
+          npx cap add ios
+      - name: Prepare app icon and splash
+        script: |
+          # App Store ikonunda alfa kanalı (şəffaflıq) ola bilməz.
+          # assets/icon.png ağ fonla düzləşdirilir (yalnız bu build-də).
+          node -e "
+            const sharp = require('sharp');
+            sharp('assets/icon.png')
+              .flatten({ background: '#ffffff' })
+              .removeAlpha()
+              .toFile('assets/icon-flat.png')
+              .then(() => require('fs').renameSync('assets/icon-flat.png', 'assets/icon.png'))
+              .catch(e => { console.error('Ikon duzlesdirilmedi:', e.message); process.exit(0); });
+          "
+          npx capacitor-assets generate --ios
       - name: Sync iOS platform
         script: |
-          if ! npm ls @capacitor/ios >/dev/null 2>&1; then
-            echo "==> @capacitor/ios tapılmadı, quraşdırılır..."
-            npm install @capacitor/ios --no-save
-          fi
-
           npx cap sync ios
-
-          # Bu layihə Capacitor SPM inteqrasiyasını istifadə edə bilər —
-          # bu halda Podfile yaranmır, CapApp-SPM qovluğu yaranır.
           if [ -f ios/App/Podfile ]; then
             echo "==> CocoaPods aşkarlandı (Podfile var)."
           elif [ -d ios/App/CapApp-SPM ]; then
-            echo "==> Swift Package Manager (SPM) aşkarlandı — Podfile/pod install lazım deyil."
+            echo "==> Swift Package Manager (SPM) aşkarlandı."
           else
-            echo "XƏTA: nə Podfile, nə də CapApp-SPM tapılmadı. iOS platforması düzgün yaradılmayıb."
+            echo "XƏTA: iOS platforması düzgün yaradılmayıb."
             exit 1
           fi
       - name: Install CocoaPods dependencies (yalnız CocoaPods istifadə olunarsa)
@@ -143,13 +146,27 @@ workflows:
           else
             echo "==> Podfile yoxdur (SPM istifadə olunur), bu addım ötürülür."
           fi
+      - name: Set Info.plist permissions and export compliance
+        script: |
+          PLIST="ios/App/App/Info.plist"
+          set_plist() {
+            /usr/libexec/PlistBuddy -c "Set :$1 $3" "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :$1 $2 $3" "$PLIST"
+          }
+          set_plist NSCameraUsageDescription string "The camera is used to scan QR codes to check in at youth houses and events."
+          set_plist NSPhotoLibraryUsageDescription string "Photo library access is used to choose a profile photo."
+          set_plist ITSAppUsesNonExemptEncryption bool false
+          echo "==> Info.plist:"
+          cat "$PLIST"
       - name: Set up code signing
         script: |
           xcode-project use-profiles
-      - name: Increment build number
+      - name: Set build number
         script: |
-          cd ios/App
-          agvtool new-version -all $(($(app-store-connect get-latest-app-store-build-number "az.mys.genclerplatformasi") + 1))
+          # Codemagic-in avtomatik artan $BUILD_NUMBER sayğacı istifadə olunur.
+          PBX="ios/App/App.xcodeproj/project.pbxproj"
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" "$PBX"
+          grep -n "CURRENT_PROJECT_VERSION\|MARKETING_VERSION" "$PBX" | head -6
       - name: Build ipa for release
         script: |
           cd ios/App
@@ -165,6 +182,7 @@ workflows:
               --scheme "App"
           fi
     artifacts:
+      - ios/App/build/ios/ipa/*.ipa
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
