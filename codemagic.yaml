@@ -94,6 +94,8 @@ workflows:
       node: 22
       xcode: latest
       cocoapods: default
+      groups:
+        - apple_signing
       vars:
         BUNDLE_ID: az.mys.genclerplatformasi
     triggering:
