@@ -19,6 +19,9 @@ type RegistrationPayload = {
   city?: string;
   address?: string;
   birthDate?: string;
+  gender?: string;
+  education?: string;
+  employmentStatus?: string;
   youthHouseName?: string;
   specialization?: string;
   teachingDirection?: string;
@@ -31,6 +34,18 @@ type RegistrationPayload = {
 };
 
 const trim = (value: unknown) => typeof value === "string" ? value.trim() : "";
+const validGender = (value: unknown) => value === "kişi" || value === "qadın" ? value : null;
+const EDUCATION_VALUES = [
+  "Orta təhsil",
+  "Peşə təhsili",
+  "Orta ixtisas təhsili",
+  "Ali təhsil (bakalavriat)",
+  "Ali təhsil (magistratura)",
+  "Formal təhsil almamışam",
+];
+const EMPLOYMENT_VALUES = ["İşləyirəm", "Sahibkaram", "İşləmirəm"];
+const validEducation = (value: unknown) => typeof value === "string" && EDUCATION_VALUES.includes(value) ? value : null;
+const validEmployment = (value: unknown) => typeof value === "string" && EMPLOYMENT_VALUES.includes(value) ? value : null;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
@@ -69,6 +84,14 @@ Deno.serve(async (req: Request) => {
     });
 
     if (createError || !created.user) {
+      // E-poçt artıq qeydiyyatdadırsa, tətbiq dəqiq mesaj göstərə bilsin deyə xüsusi kod qaytarırıq.
+      const errorCode = (createError as { code?: string } | null)?.code ?? "";
+      const errorMessage = createError?.message ?? "";
+      const alreadyExists = errorCode === "email_exists" || errorCode === "user_already_exists" ||
+        /already (been )?registered|already exists/i.test(errorMessage);
+      if (alreadyExists) {
+        return new Response(JSON.stringify({ error: "Email already registered", code: "email_exists" }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       return new Response(JSON.stringify({ error: "Registration could not be completed" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -83,6 +106,9 @@ Deno.serve(async (req: Request) => {
       city: trim(body.city) || null,
       address: trim(body.address) || null,
       birth_date: trim(body.birthDate) || null,
+      gender: validGender(body.gender),
+      education: validEducation(body.education),
+      employment_status: validEmployment(body.employmentStatus),
       youth_house_name: trim(body.youthHouseName) || null,
       specialization: trim(body.specialization) || null,
       teaching_direction: trim(body.teachingDirection) || null,

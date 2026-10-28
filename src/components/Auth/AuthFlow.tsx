@@ -55,6 +55,17 @@ function checkEmail(raw: string): { email: string; problem?: string; suggestion?
   return { email };
 }
 
+const EDUCATION_OPTIONS = [
+  'Orta təhsil',
+  'Peşə təhsili',
+  'Orta ixtisas təhsili',
+  'Ali təhsil (bakalavriat)',
+  'Ali təhsil (magistratura)',
+  'Formal təhsil almamışam',
+];
+
+const EMPLOYMENT_OPTIONS = ['İşləyirəm', 'Sahibkaram', 'İşləmirəm'];
+
 interface AuthFlowProps {
   initialRole: AccountRole;
   onBack: () => void;
@@ -192,6 +203,10 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     if (emailCheck.email !== (values.email ?? '')) {
       setValues((current) => ({ ...current, email: emailCheck.email }));
     }
+    if (role === 'youth' && (!values.education || !values.employmentStatus)) {
+      setError('Təhsil və məşğulluq vəziyyətini seçin.');
+      return;
+    }
     if ((values.password ?? '').length < 8) {
       setError('Şifrə ən azı 8 simvoldan ibarət olmalıdır.');
       return;
@@ -212,6 +227,8 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
       address: values.address,
       birthDate: values.birthDate,
       gender: values.gender,
+      education: role === 'youth' ? values.education : undefined,
+      employmentStatus: role === 'youth' ? values.employmentStatus : undefined,
       youthHouseName: values.youthHouseName,
       specialization: values.specialization,
       teachingDirection: values.teachingDirection,
@@ -270,6 +287,23 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
 
   const input = (label: string, name: string, type = 'text', required = true, placeholder?: string) => <Field key={name} label={label} name={name} type={type} required={required} value={values[name] ?? ''} onChange={setValue(setValues, name)} placeholder={placeholder} />;
 
+  const choiceSelect = (label: string, name: string, options: string[]) => (
+    <Field key={name} label={label} name={name} value={values[name] ?? ''} onChange={setValue(setValues, name)}>
+      <select
+        name={name}
+        required
+        value={values[name] ?? ''}
+        onChange={(event) => setValue(setValues, name)(event.target.value)}
+        className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+      >
+        <option value="">Seçin...</option>
+        {options.map((option) => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </Field>
+  );
+
   const genderSelect = (
     <Field key="gender" label="Cins" name="gender" required={false} value={values.gender ?? ''} onChange={setValue(setValues, 'gender')}>
       <select
@@ -291,7 +325,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
       <div className="grid gap-4 sm:grid-cols-2">{input('E-poçt', 'email', 'email')}{input('Mobil telefon', 'phone', 'tel')}</div>
       <div className="grid gap-4 sm:grid-cols-2">{input('Şifrə', 'password', 'password')}{input('Şifrənin təkrarı', 'passwordConfirmation', 'password')}</div>
     </>;
-    if (role === 'youth') return <>{common}<div className="grid gap-4 sm:grid-cols-2">{input('Doğum tarixi', 'birthDate', 'date')}{input('Şəhər/Rayon', 'city')}</div>{genderSelect}{houseSelect('Gənclər Evi', 'youthHouseName')}</>;
+    if (role === 'youth') return <>{common}<div className="grid gap-4 sm:grid-cols-2">{input('Doğum tarixi', 'birthDate', 'date')}{input('Şəhər/Rayon', 'city')}</div>{genderSelect}{choiceSelect('Təhsil', 'education', EDUCATION_OPTIONS)}{choiceSelect('Hazırkı məşğulluq vəziyyətiniz', 'employmentStatus', EMPLOYMENT_OPTIONS)}{houseSelect('Gənclər Evi', 'youthHouseName')}</>;
     if (role === 'trainer') return <>{common}{input('İxtisas', 'specialization')}{input('Tədris istiqaməti', 'teachingDirection')}{input('İş yeri', 'workplace')}{input('İş təcrübəsi', 'workExperience')}<Field label="Qısa bio" name="bio" required={false} value={values.bio ?? ''} onChange={setValue(setValues, 'bio')}><textarea name="bio" value={values.bio ?? ''} onChange={(event) => setValue(setValues, 'bio')(event.target.value)} rows={3} className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50" /></Field></>;
     return <>{houseSelect('Gənclər Evinin adı', 'houseName')}{input('Şəhər/Rayon', 'city')}{input('Ünvan', 'address')}{input('Telefon', 'phone', 'tel')}{input('E-poçt', 'email', 'email')}{input('Məsul şəxsin adı və soyadı', 'responsibleName')}{input('Məsul şəxsin e-poçtu', 'responsibleEmail', 'email')}<div className="grid gap-4 sm:grid-cols-2">{input('Şifrə', 'password', 'password')}{input('Şifrənin təkrarı', 'passwordConfirmation', 'password')}</div><input type="hidden" value={values.houseName ?? ''} />{!values.firstName && <input type="hidden" />}</>;
   };
