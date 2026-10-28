@@ -16,6 +16,8 @@ export interface PlatformProfile {
   city: string | null;
   address: string | null;
   birth_date: string | null;
+  education: string | null;
+  employment_status: string | null;
   youth_house_name: string | null;
   specialization: string | null;
   teaching_direction: string | null;

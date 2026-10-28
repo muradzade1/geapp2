@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, RefreshCcw, Trash2, X, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Pencil, RefreshCcw, Trash2, X, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { PlatformProfile } from '../../lib/profile';
 
@@ -83,6 +83,48 @@ export function RegistrationsPanel() {
   const [confirmWord, setConfirmWord] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [editTarget, setEditTarget] = useState<PlatformProfile | null>(null);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = (row: PlatformProfile) => {
+    setEditTarget(row);
+    setEditFirstName(row.first_name ?? '');
+    setEditLastName(row.last_name ?? '');
+    setEditError(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    const firstName = editFirstName.trim();
+    const lastName = editLastName.trim();
+    if (!firstName || !lastName) {
+      setEditError('Ad və soyad boş ola bilməz.');
+      return;
+    }
+
+    setSaving(true);
+    setEditError(null);
+
+    const { error: rpcError } = await supabase.rpc('admin_update_profile_name', {
+      target_id: editTarget.id,
+      new_first_name: firstName,
+      new_last_name: lastName,
+    });
+
+    if (rpcError) {
+      setEditError(rpcError.message);
+      setSaving(false);
+      return;
+    }
+
+    setRows((current) => current.map((row) => row.id === editTarget.id ? { ...row, first_name: firstName, last_name: lastName } : row));
+    setEditTarget(null);
+    setSaving(false);
+  };
 
   const deleteAccount = async () => {
     if (!deleteTarget) return;
@@ -177,6 +219,13 @@ export function RegistrationsPanel() {
                       {row.role === 'youth' && row.youth_house_name ? ` · ${row.youth_house_name}` : ''}
                       {row.role === 'youth_house' && row.responsible_name ? ` · ${row.responsible_name}` : ''}
                     </p>
+                    {row.role === 'youth' && (row.education || row.employment_status) && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {row.education ? `Təhsil: ${row.education}` : ''}
+                        {row.education && row.employment_status ? ' · ' : ''}
+                        {row.employment_status ? `Məşğulluq: ${row.employment_status}` : ''}
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2 sm:justify-end">
                     <button disabled={isBusy || row.status === 'approved'} onClick={() => void updateStatus(row.id, 'approved')} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
@@ -184,6 +233,14 @@ export function RegistrationsPanel() {
                     </button>
                     <button disabled={isBusy || row.status === 'rejected'} onClick={() => void updateStatus(row.id, 'rejected')} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">
                       <XCircle className="h-4 w-4" />Rədd et
+                    </button>
+                    <button
+                      disabled={isBusy}
+                      onClick={() => openEdit(row)}
+                      title="Ad/soyadı redaktə et"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Pencil className="h-4 w-4" />Redaktə
                     </button>
                     <button
                       disabled={isBusy}
@@ -200,6 +257,67 @@ export function RegistrationsPanel() {
           </div>
         )}
       </div>
+
+      {editTarget && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Pencil className="text-emerald-600" size={20} />
+                <h3 className="font-semibold text-gray-800">Ad/soyadı redaktə et</h3>
+              </div>
+              <button onClick={() => setEditTarget(null)} disabled={saving} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold text-gray-700">Ad</span>
+                <input
+                  type="text"
+                  value={editFirstName}
+                  onChange={(event) => setEditFirstName(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold text-gray-700">Soyad</span>
+                <input
+                  type="text"
+                  value={editLastName}
+                  onChange={(event) => setEditLastName(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </label>
+
+              {editError && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                  {editError}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditTarget(null)}
+                  disabled={saving}
+                  className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  İmtina
+                </button>
+                <button
+                  onClick={() => void saveEdit()}
+                  disabled={saving}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:bg-gray-300"
+                >
+                  {saving && <Loader2 size={15} className="animate-spin" />}
+                  Yadda saxla
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteTarget && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">

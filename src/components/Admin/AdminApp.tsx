@@ -1,3 +1,4 @@
+import TrendChart from './TrendChart';
 import React, { useState } from 'react';
 import {
   ArrowLeft, LayoutDashboard, Building2, Calendar, QrCode, MessageSquare, FileText,
@@ -294,8 +295,9 @@ const AdminApp: React.FC<AdminAppProps> = ({ onBack }) => {
           />
         </ChartCard>
 
+        <div className="lg:col-span-2">
         <ChartCard title="Aylıq trend">
-          <LineChartSimple
+          <TrendChart
             data={charts.monthly_trend.map(d => ({
               label: d.month,
               series: [
@@ -306,8 +308,9 @@ const AdminApp: React.FC<AdminAppProps> = ({ onBack }) => {
             }))}
           />
         </ChartCard>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:col-span-2">
           <ChartCard title="Yaş bölgüsü">
             <DonutChart
               data={charts.age_distribution.map((d, i) => ({
@@ -318,6 +321,37 @@ const AdminApp: React.FC<AdminAppProps> = ({ onBack }) => {
             />
           </ChartCard>
 
+          <ChartCard title="Cins bölgüsü">
+            <DonutChart
+              data={charts.gender_distribution.map((d, i) => ({
+                label: d.gender,
+                value: d.count,
+                color: PIE_COLORS[i % PIE_COLORS.length],
+              }))}
+            />
+          </ChartCard>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:col-span-2">
+          <ChartCard title="Təhsil bölgüsü">
+            <DonutChart
+              data={charts.education_distribution.map((d, i) => ({
+                label: d.education,
+                value: d.count,
+                color: PIE_COLORS[i % PIE_COLORS.length],
+              }))}
+            />
+          </ChartCard>
+
+          <ChartCard title="Məşğulluq bölgüsü">
+            <DonutChart
+              data={charts.employment_distribution.map((d, i) => ({
+                label: d.employment,
+                value: d.count,
+                color: PIE_COLORS[i % PIE_COLORS.length],
+              }))}
+            />
+          </ChartCard>
         </div>
       </div>
     </div>

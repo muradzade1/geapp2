@@ -6,6 +6,8 @@ export type AdminCharts = {
   monthly_trend: { month: string; users: number; events: number; visits: number }[];
   age_distribution: { age: string; count: number }[];
   gender_distribution: { gender: string; count: number }[];
+  education_distribution: { education: string; count: number }[];
+  employment_distribution: { employment: string; count: number }[];
   top_houses: { name: string; visitors: number; members: number }[];
 };
 
@@ -14,6 +16,8 @@ export const EMPTY_CHARTS: AdminCharts = {
   monthly_trend: [],
   age_distribution: [],
   gender_distribution: [],
+  education_distribution: [],
+  employment_distribution: [],
   top_houses: [],
 };
 
