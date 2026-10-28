@@ -182,17 +182,33 @@ export function HouseEventsManager({ houseId }: Props) {
     );
   }
 
-  const field = (label: string, key: keyof typeof form, type = 'text') => (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-gray-600">{label}</label>
-      <input
-        type={type}
-        value={form[key]}
-        onChange={e => setForm({ ...form, [key]: e.target.value })}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-      />
-    </div>
-  );
+  const field = (label: string, key: keyof typeof form, type = 'text') => {
+    // Rəqəm sahələri: type="number" bəzi Android klaviaturalarında (WebView) silmə düyməsini
+    // pozur. Ona görə adi mətn sahəsi + rəqəm klaviaturası istifadə olunur.
+    const isNumber = type === 'number';
+    const isText = type === 'text';
+    return (
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-gray-600">{label}</label>
+        <input
+          type={isNumber ? 'text' : type}
+          inputMode={isNumber ? 'numeric' : undefined}
+          pattern={isNumber ? '[0-9]*' : undefined}
+          autoComplete="off"
+          autoCorrect={isText || isNumber ? 'off' : undefined}
+          spellCheck={isText || isNumber ? false : undefined}
+          value={form[key]}
+          onChange={e =>
+            setForm({
+              ...form,
+              [key]: isNumber ? e.target.value.replace(/\D/g, '') : e.target.value,
+            })
+          }
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -284,6 +300,9 @@ export function HouseEventsManager({ houseId }: Props) {
             <textarea
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               rows={3}
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
             />

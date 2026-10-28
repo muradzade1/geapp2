@@ -9,6 +9,52 @@ type Screen = 'login' | 'register-choice' | 'register-form';
 // Şifrə yeniləmə linki həmişə veb saytı açmalıdır (mobil tətbiqin daxili ünvanı telefonun brauzerində açılmır).
 const WEB_URL = 'https://genclerevi.netlify.app';
 
+// Qeydiyyatda tez-tez rast gəlinən e-poçt domen səhvləri → düzgün domen.
+const EMAIL_DOMAIN_FIXES: Record<string, string> = {
+  'gamil.com': 'gmail.com',
+  'gmial.com': 'gmail.com',
+  'gmai.com': 'gmail.com',
+  'gmal.com': 'gmail.com',
+  'gmaill.com': 'gmail.com',
+  'gnail.com': 'gmail.com',
+  'gmail.con': 'gmail.com',
+  'gmail.cim': 'gmail.com',
+  'gmail.vom': 'gmail.com',
+  'gmail.cpm': 'gmail.com',
+  'gmail.comm': 'gmail.com',
+  'gmail.cmo': 'gmail.com',
+  'gmailcom': 'gmail.com',
+  'gmail': 'gmail.com',
+  'iclound.com': 'icloud.com',
+  'icloud.con': 'icloud.com',
+  'icloud': 'icloud.com',
+  'yaho.com': 'yahoo.com',
+  'yahho.com': 'yahoo.com',
+  'yahoo.con': 'yahoo.com',
+  'hotmial.com': 'hotmail.com',
+  'hotmail.con': 'hotmail.com',
+  'outlok.com': 'outlook.com',
+  'outlook.con': 'outlook.com',
+};
+
+/** E-poçtu təmizləyir; səhv varsa mesaj, domen səhvi varsa düzəliş təklif edir. */
+function checkEmail(raw: string): { email: string; problem?: string; suggestion?: string } {
+  const email = raw.trim().toLowerCase().replace(/\s+/g, '').replace(/\.+$/, '');
+  const match = /^([^@]+)@([^@]+)$/.exec(email);
+  if (!match) return { email, problem: 'E-poçt ünvanı düzgün deyil. Nümunə: ad@gmail.com' };
+  const [, local, domain] = match;
+  // Azərbaycan hərfləri və ya xüsusi simvollar olan domenlər (punycode daxil) real e-poçt deyil.
+  if ([...email].some((ch) => ch.charCodeAt(0) > 127) || domain.startsWith('xn--')) {
+    return { email, problem: 'E-poçt ünvanında latın olmayan hərflər var. Ünvanı yoxlayın.' };
+  }
+  const fixed = EMAIL_DOMAIN_FIXES[domain];
+  if (fixed) return { email, suggestion: `${local}@${fixed}` };
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/.test(domain)) {
+    return { email, problem: 'E-poçt ünvanının sonu düzgün deyil (məsələn, @gmail.com).' };
+  }
+  return { email };
+}
+
 interface AuthFlowProps {
   initialRole: AccountRole;
   onBack: () => void;
@@ -43,6 +89,9 @@ function Field({ label, name, type = 'text', required = true, value, onChange, p
           onCompositionEnd={(event) => { setIsComposing(false); onChange((event.target as HTMLInputElement).value); }}
           onBlur={(event) => onChange(event.target.value)}
           placeholder={placeholder}
+          autoCapitalize={type === 'email' ? 'none' : undefined}
+          autoCorrect={type === 'email' ? 'off' : undefined}
+          spellCheck={type === 'email' ? false : undefined}
           className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
         />
       )}
@@ -129,6 +178,20 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
   const register = async (event: FormEvent) => {
     event.preventDefault();
     resetFeedback();
+    const emailCheck = checkEmail(values.email ?? '');
+    if (emailCheck.problem) {
+      setError(emailCheck.problem);
+      return;
+    }
+    if (emailCheck.suggestion) {
+      // Domen səhvi: ünvanı düzəldib istifadəçidən təsdiq üçün yenidən basmasını istəyirik.
+      setValues((current) => ({ ...current, email: emailCheck.suggestion as string }));
+      setError(`E-poçt ünvanında səhv ola bilər. Düzəldildi: ${emailCheck.suggestion}. Doğrudursa, yenidən "Qeydiyyatdan keç" düyməsinə basın, deyilsə düzəldin.`);
+      return;
+    }
+    if (emailCheck.email !== (values.email ?? '')) {
+      setValues((current) => ({ ...current, email: emailCheck.email }));
+    }
     if ((values.password ?? '').length < 8) {
       setError('Şifrə ən azı 8 simvoldan ibarət olmalıdır.');
       return;
@@ -140,7 +203,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     setBusy(true);
     const payload = {
       role,
-      email: values.email ?? '',
+      email: emailCheck.email,
       password: values.password ?? '',
       firstName: values.firstName ?? '',
       lastName: values.lastName ?? '',
@@ -162,11 +225,26 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     const { error: registrationError } = await supabase.functions.invoke('register-platform-account', { body: payload });
     setBusy(false);
     if (registrationError) {
-      setError('Qeydiyyatı tamamlamaq mümkün olmadı. Məlumatları yoxlayıb yenidən cəhd edin.');
+      // Server "email_exists" kodu qaytarırsa, istifadəçiyə dəqiq səbəbi göstəririk.
+      let code = '';
+      try {
+        const response = (registrationError as { context?: Response }).context;
+        if (response && typeof response.json === 'function') {
+          const body = await response.json();
+          code = typeof body?.code === 'string' ? body.code : '';
+        }
+      } catch {
+        /* cavab oxunmadı: ümumi mesaj göstəriləcək */
+      }
+      if (code === 'email_exists') {
+        setError('Bu e-poçt artıq qeydiyyatdan keçib. Qeydiyyatı təkrar etməyin: giriş səhifəsinə qayıdıb daxil olun və ya "Şifrəni unutmusunuz?" düyməsindən istifadə edin.');
+      } else {
+        setError('Qeydiyyatı tamamlamaq mümkün olmadı. Məlumatları yoxlayıb yenidən cəhd edin.');
+      }
       return;
     }
     setMessage('Qeydiyyatınız uğurla tamamlandı. Administrator tərəfindən təsdiq edildikdən sonra hesabınıza daxil ola biləcəksiniz.');
-    setValues({ email: values.email ?? '' });
+    setValues({ email: emailCheck.email });
     setScreen('login');
     setRole(role);
   };
