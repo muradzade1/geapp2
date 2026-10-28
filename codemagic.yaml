@@ -94,9 +94,8 @@ workflows:
       node: 22
       xcode: latest
       cocoapods: default
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: az.mys.genclerplatformasi
+      vars:
+        BUNDLE_ID: az.mys.genclerplatformasi
     triggering:
       events:
         - tag
@@ -160,6 +159,13 @@ workflows:
           cat "$PLIST"
       - name: Set up code signing
         script: |
+          # Apple-dan distribution sertifikatı və App Store profilini alır;
+          # yoxdursa, avtomatik yaradır (--create).
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
           xcode-project use-profiles
       - name: Set build number
         script: |
