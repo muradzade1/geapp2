@@ -16,6 +16,7 @@ import {
   X,
   RefreshCw,
   Building2,
+  User,
 } from 'lucide-react';
 import {
   useTrainerHouses,
@@ -37,12 +38,13 @@ import {
 } from '../../lib/api/events';
 import { scanAndCheckin } from '../../lib/api/checkin';
 import { relativeTime } from '../../lib/api/content';
+import { TrainerProfile } from './TrainerProfile';
 
 interface TrainerAppProps {
   onBack: () => void;
 }
 
-type TabKey = 'main' | 'trainings' | 'participants' | 'feedback';
+type TabKey = 'main' | 'trainings' | 'participants' | 'feedback' | 'profile';
 
 const TrainerApp: React.FC<TrainerAppProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<TabKey>('main');
@@ -197,6 +199,7 @@ const TrainerApp: React.FC<TrainerAppProps> = ({ onBack }) => {
     { key: 'trainings', label: 'Tədbirlərim', icon: <BookOpen size={18} /> },
     { key: 'participants', label: 'İştirakçılar', icon: <Users size={18} /> },
     { key: 'feedback', label: 'Rəylər', icon: <MessageSquare size={18} /> },
+    { key: 'profile', label: 'Profil', icon: <User size={18} /> },
   ];
 
   const statCards = [
@@ -573,6 +576,7 @@ const TrainerApp: React.FC<TrainerAppProps> = ({ onBack }) => {
     trainings: renderTrainings,
     participants: renderParticipants,
     feedback: renderFeedback,
+    profile: () => <TrainerProfile />,
   };
 
   return (
