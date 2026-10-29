@@ -33,7 +33,13 @@ workflows:
             npm install @capacitor/ios --no-save
           fi
 
-          npx cap add ios --packagemanager CocoaPods
+          npx cap add ios --packagemanager CocoaPods || echo "==> cap add daxilindeki pod install ugursuz oldu, Podfile duzeldilir"
+          PODFILE=ios/App/Podfile
+          if [ ! -f "$PODFILE" ]; then echo "XETA: Podfile yaranmadi"; exit 1; fi
+          sed -i '' "s/platform :ios, '[0-9.]*'/platform :ios, '16.0'/" "$PODFILE"
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/App/App.xcodeproj/project.pbxproj
+          grep -n "platform :ios" "$PODFILE"
+          (cd ios/App && pod install)
           npx cap sync ios
 
           echo "==> ios/App qovluğunun məzmunu:"
@@ -119,7 +125,13 @@ workflows:
       - name: Create iOS platform
         script: |
           rm -rf ios
-          npx cap add ios --packagemanager CocoaPods
+          npx cap add ios --packagemanager CocoaPods || echo "==> cap add daxilindeki pod install ugursuz oldu, Podfile duzeldilir"
+          PODFILE=ios/App/Podfile
+          if [ ! -f "$PODFILE" ]; then echo "XETA: Podfile yaranmadi"; exit 1; fi
+          sed -i '' "s/platform :ios, '[0-9.]*'/platform :ios, '16.0'/" "$PODFILE"
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/App/App.xcodeproj/project.pbxproj
+          grep -n "platform :ios" "$PODFILE"
+          (cd ios/App && pod install)
       - name: Prepare app icon and splash
         script: |
           # App Store ikonunda alfa kanalı (şəffaflıq) ola bilməz.
