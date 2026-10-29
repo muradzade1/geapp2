@@ -219,7 +219,7 @@ export function RegistrationsPanel() {
                       {row.role === 'youth' && row.youth_house_name ? ` · ${row.youth_house_name}` : ''}
                       {row.role === 'youth_house' && row.responsible_name ? ` · ${row.responsible_name}` : ''}
                     </p>
-                    {row.role === 'youth' && (row.education || row.employment_status) && (
+                    {(row.role === 'youth' || row.role === 'trainer') && (row.education || row.employment_status) && (
                       <p className="mt-1 text-xs text-gray-500">
                         {row.education ? `Təhsil: ${row.education}` : ''}
                         {row.education && row.employment_status ? ' · ' : ''}

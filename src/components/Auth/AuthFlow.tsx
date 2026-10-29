@@ -203,7 +203,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     if (emailCheck.email !== (values.email ?? '')) {
       setValues((current) => ({ ...current, email: emailCheck.email }));
     }
-    if (role === 'youth' && (!values.education || !values.employmentStatus)) {
+    if ((role === 'youth' || role === 'trainer') && (!values.education || !values.employmentStatus)) {
       setError('Təhsil və məşğulluq vəziyyətini seçin.');
       return;
     }
@@ -227,8 +227,8 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
       address: values.address,
       birthDate: values.birthDate,
       gender: values.gender,
-      education: role === 'youth' ? values.education : undefined,
-      employmentStatus: role === 'youth' ? values.employmentStatus : undefined,
+      education: role === 'youth' || role === 'trainer' ? values.education : undefined,
+      employmentStatus: role === 'youth' || role === 'trainer' ? values.employmentStatus : undefined,
       youthHouseName: values.youthHouseName,
       specialization: values.specialization,
       teachingDirection: values.teachingDirection,
@@ -326,7 +326,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
       <div className="grid gap-4 sm:grid-cols-2">{input('Şifrə', 'password', 'password')}{input('Şifrənin təkrarı', 'passwordConfirmation', 'password')}</div>
     </>;
     if (role === 'youth') return <>{common}<div className="grid gap-4 sm:grid-cols-2">{input('Doğum tarixi', 'birthDate', 'date')}{input('Şəhər/Rayon', 'city')}</div>{genderSelect}{choiceSelect('Təhsil', 'education', EDUCATION_OPTIONS)}{choiceSelect('Hazırkı məşğulluq vəziyyətiniz', 'employmentStatus', EMPLOYMENT_OPTIONS)}{houseSelect('Gənclər Evi', 'youthHouseName')}</>;
-    if (role === 'trainer') return <>{common}{input('İxtisas', 'specialization')}{input('Tədris istiqaməti', 'teachingDirection')}{input('İş yeri', 'workplace')}{input('İş təcrübəsi', 'workExperience')}<Field label="Qısa bio" name="bio" required={false} value={values.bio ?? ''} onChange={setValue(setValues, 'bio')}><textarea name="bio" value={values.bio ?? ''} onChange={(event) => setValue(setValues, 'bio')(event.target.value)} rows={3} className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50" /></Field></>;
+    if (role === 'trainer') return <>{common}{choiceSelect('Təhsil', 'education', EDUCATION_OPTIONS)}{choiceSelect('Hazırkı məşğulluq vəziyyətiniz', 'employmentStatus', EMPLOYMENT_OPTIONS)}{input('İxtisas', 'specialization')}{input('Tədris istiqaməti', 'teachingDirection')}{input('İş yeri', 'workplace')}{input('İş təcrübəsi', 'workExperience')}<Field label="Qısa bio" name="bio" required={false} value={values.bio ?? ''} onChange={setValue(setValues, 'bio')}><textarea name="bio" value={values.bio ?? ''} onChange={(event) => setValue(setValues, 'bio')(event.target.value)} rows={3} className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50" /></Field></>;
     return <>{houseSelect('Gənclər Evinin adı', 'houseName')}{input('Şəhər/Rayon', 'city')}{input('Ünvan', 'address')}{input('Telefon', 'phone', 'tel')}{input('E-poçt', 'email', 'email')}{input('Məsul şəxsin adı və soyadı', 'responsibleName')}{input('Məsul şəxsin e-poçtu', 'responsibleEmail', 'email')}<div className="grid gap-4 sm:grid-cols-2">{input('Şifrə', 'password', 'password')}{input('Şifrənin təkrarı', 'passwordConfirmation', 'password')}</div><input type="hidden" value={values.houseName ?? ''} />{!values.firstName && <input type="hidden" />}</>;
   };
 

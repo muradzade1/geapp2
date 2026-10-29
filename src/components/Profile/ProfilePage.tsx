@@ -129,7 +129,6 @@ function useMyPointHistory(limit = 30) {
   return rows;
 }
 import { fullName, useProfile } from '../../lib/profile';
-import { supabase } from '../../lib/supabase';
 import type { Badge } from '../../types';
 import AllBadgesModal from './AllBadgesModal';
 
@@ -158,6 +157,16 @@ const tabs: { key: TabKey; label: string; icon: React.ComponentType<{ className?
   { key: 'feedback', label: 'Rəy tarixçəsi', icon: MessagesSquare },
 ];
 
+const EDUCATION_OPTIONS = [
+  'Orta təhsil',
+  'Peşə təhsili',
+  'Orta ixtisas təhsili',
+  'Ali təhsil (bakalavriat)',
+  'Ali təhsil (magistratura)',
+  'Formal təhsil almamışam',
+];
+const EMPLOYMENT_OPTIONS = ['İşləyirəm', 'Sahibkaram', 'İşləmirəm'];
+
 export function ProfilePage() {
   const { profile, avatarUrl, refresh } = useProfile();
   const [isEditing, setIsEditing] = useState(false);
@@ -169,6 +178,8 @@ export function ProfilePage() {
     email: profile?.email ?? '',
     phone: profile?.phone ?? '',
     city: profile?.city ?? '',
+    education: profile?.education ?? '',
+    employmentStatus: profile?.employment_status ?? '',
   });
   useMemo(() => {
     setFormData({
@@ -176,8 +187,10 @@ export function ProfilePage() {
       email: profile?.email ?? '',
       phone: profile?.phone ?? '',
       city: profile?.city ?? '',
+      education: profile?.education ?? '',
+      employmentStatus: profile?.employment_status ?? '',
     });
-  }, [profile?.id, profile?.first_name, profile?.last_name, profile?.email, profile?.phone, profile?.city]);
+  }, [profile?.id, profile?.first_name, profile?.last_name, profile?.email, profile?.phone, profile?.city, profile?.education, profile?.employment_status]);
 
   const { stats: youthStats } = useYouthStats();
   const { visits: myVisits } = useMyVisits(25);
@@ -231,6 +244,12 @@ export function ProfilePage() {
       last_name: rest.join(' '),
       phone: formData.phone,
       city: formData.city,
+      ...(profile.role === 'youth'
+        ? {
+            education: formData.education || null,
+            employment_status: formData.employmentStatus || null,
+          }
+        : {}),
     }).eq('id', profile.id);
     await refresh();
     setSaving(false);
@@ -243,6 +262,8 @@ export function ProfilePage() {
       email: profile?.email ?? '',
       phone: profile?.phone ?? '',
       city: profile?.city ?? '',
+      education: profile?.education ?? '',
+      employmentStatus: profile?.employment_status ?? '',
     });
     setIsEditing(false);
   }
@@ -330,6 +351,19 @@ export function ProfilePage() {
                   )}
                 </div>
 
+                {profile?.role === 'youth' && !isEditing && (!profile.education || !profile.employment_status) && (
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-sm text-amber-800">
+                      Təhsil və məşğulluq məlumatlarınız doldurulmayıb. Zəhmət olmasa, profilinizi tamamlayın.
+                    </p>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+                    >
+                      Doldur
+                    </button>
+                  </div>
+                )}
                 <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
                   Şəxsi məlumatlar
                 </h3>
@@ -371,6 +405,50 @@ export function ProfilePage() {
                       {memberId}
                     </p>
                   </div>
+                  {profile?.role === 'youth' && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                          <GraduationCap className="h-3.5 w-3.5" />
+                          Təhsil
+                        </label>
+                        {isEditing ? (
+                          <select
+                            value={formData.education}
+                            onChange={(e) => handleChange('education', e.target.value)}
+                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
+                          >
+                            <option value="">Seçin</option>
+                            {EDUCATION_OPTIONS.map((o) => (
+                              <option key={o} value={o}>{o}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-900">{profile.education || '—'}</p>
+                        )}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                          <User className="h-3.5 w-3.5" />
+                          Hazırkı məşğulluq vəziyyəti
+                        </label>
+                        {isEditing ? (
+                          <select
+                            value={formData.employmentStatus}
+                            onChange={(e) => handleChange('employmentStatus', e.target.value)}
+                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
+                          >
+                            <option value="">Seçin</option>
+                            {EMPLOYMENT_OPTIONS.map((o) => (
+                              <option key={o} value={o}>{o}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-900">{profile.employment_status || '—'}</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </section>
