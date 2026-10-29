@@ -398,12 +398,7 @@ export function YouthHouseApp({ onBack }: YouthHouseAppProps) {
       <header className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 px-4 py-3 text-white shadow-lg sm:px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 transition-colors hover:bg-white/20"
-            >
-              <ArrowLeft size={20} />
-            </button>
+            <button onClick={onBack} className="order-last ml-auto rounded-lg bg-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/25">Çıxış</button>
             <div>
               <h1 className="text-base font-bold sm:text-lg">Gənclər Evi Paneli</h1>
               <p className="text-xs text-blue-200">{houseName}</p>

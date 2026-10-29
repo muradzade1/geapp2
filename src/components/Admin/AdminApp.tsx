@@ -598,7 +598,7 @@ const AdminApp: React.FC<AdminAppProps> = ({ onBack }) => {
       <header className="sticky top-0 z-50 bg-gradient-to-r from-rose-700 via-red-600 to-rose-700 text-white shadow-lg">
         <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/10 transition"><ArrowLeft size={22} /></button>
+            <button onClick={onBack} className="order-last ml-auto rounded-lg bg-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/25">Çıxış</button>
             <div>
               <h1 className="text-lg lg:text-xl font-bold">Nazirlik İdarəetmə Paneli</h1>
               <p className="text-xs text-rose-200">Bütün Gənclər Evləri üzrə canlı statistika və analitika</p>

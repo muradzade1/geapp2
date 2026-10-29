@@ -38,6 +38,7 @@ import {
 } from '../../lib/api/events';
 import { scanAndCheckin } from '../../lib/api/checkin';
 import { relativeTime } from '../../lib/api/content';
+import { useBackHandler } from '../../lib/backHandler';
 import { TrainerProfile } from './TrainerProfile';
 
 interface TrainerAppProps {
@@ -47,6 +48,10 @@ interface TrainerAppProps {
 type TabKey = 'main' | 'trainings' | 'participants' | 'feedback' | 'profile';
 
 const TrainerApp: React.FC<TrainerAppProps> = ({ onBack }) => {
+  useBackHandler(() => {
+    if (activeTab !== 'main') { setActiveTab('main'); return true; }
+    return false;
+  });
   const [activeTab, setActiveTab] = useState<TabKey>('main');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
@@ -583,12 +588,7 @@ const TrainerApp: React.FC<TrainerAppProps> = ({ onBack }) => {
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-700 text-white shadow-lg">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-4">
-          <button
-            onClick={onBack}
-            className="rounded-lg bg-white/15 p-2 transition hover:bg-white/25"
-          >
-            <ArrowLeft size={20} />
-          </button>
+          <button onClick={onBack} className="order-last ml-auto rounded-lg bg-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/25">Çıxış</button>
           <div>
             <h1 className="text-lg font-bold">Təlimçi Paneli</h1>
             <p className="text-sm text-blue-100">

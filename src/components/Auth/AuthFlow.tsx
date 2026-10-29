@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { YOUTH_HOUSES } from '../../data/youthHouseList';
 
 type AccountRole = 'youth' | 'trainer' | 'youth_house' | 'admin';
+import { useBackHandler } from '../../lib/backHandler';
 type Screen = 'login' | 'register-choice' | 'register-form';
 
 // Şifrə yeniləmə linki həmişə veb saytı açmalıdır (mobil tətbiqin daxili ünvanı telefonun brauzerində açılmır).
@@ -116,6 +117,12 @@ function setValue(setter: Dispatch<SetStateAction<Record<string, string>>>, name
 
 export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
   const [screen, setScreen] = useState<Screen>('login');
+  useBackHandler(() => {
+    if (screen === 'register-form') { setScreen('register-choice'); return true; }
+    if (screen === 'register-choice') { setScreen('login'); return true; }
+    onBack();
+    return true;
+  });
   const [role, setRole] = useState<AccountRole>(initialRole);
   const [values, setValues] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
