@@ -33,7 +33,7 @@ workflows:
             npm install @capacitor/ios --no-save
           fi
 
-          npx cap add ios
+          npx cap add ios --packagemanager CocoaPods
           npx cap sync ios
 
           echo "==> ios/App qovluğunun məzmunu:"
@@ -119,7 +119,7 @@ workflows:
       - name: Create iOS platform
         script: |
           rm -rf ios
-          npx cap add ios
+          npx cap add ios --packagemanager CocoaPods
       - name: Prepare app icon and splash
         script: |
           # App Store ikonunda alfa kanalı (şəffaflıq) ola bilməz.
