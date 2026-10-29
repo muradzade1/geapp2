@@ -66,10 +66,12 @@ export async function scanWithCamera(): Promise<string | null> {
     throw new Error('Kamera icazəsi verilmədi');
   }
 
-  // Google Play Services modulu ilk dəfə endirilməli ola bilər.
-  const available = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
-  if (!available.available) {
-    await BarcodeScanner.installGoogleBarcodeScannerModule();
+  // Google Play Services modulu yalnız Android-də mövcuddur və ilk dəfə endirilməli ola bilər.
+  if (Capacitor.getPlatform() === 'android') {
+    const available = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
+    if (!available.available) {
+      await BarcodeScanner.installGoogleBarcodeScannerModule();
+    }
   }
 
   const { barcodes } = await BarcodeScanner.scan({
