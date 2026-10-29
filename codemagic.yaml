@@ -96,6 +96,7 @@ workflows:
       cocoapods: default
       groups:
         - apple_signing
+        - app_env
       vars:
         BUNDLE_ID: az.mys.genclerplatformasi
     triggering:
@@ -110,6 +111,10 @@ workflows:
           npm ci
       - name: Build web assets
         script: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "XETA: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY teyin olunmayib (Codemagic app_env qrupu)."
+            exit 1
+          fi
           npm run build
       - name: Create iOS platform
         script: |
