@@ -233,36 +233,21 @@ export type Participant = {
   attended: boolean;
 };
 
-/** Tədbirə yazılanlar və iştirakı təsdiqlənənlər. */
+/**
+ * Tədbirə yazılanlar və iştirakı təsdiqlənənlər.
+ * Adlar bazadakı təhlükəsiz `event_participants` funksiyasından gəlir
+ * (profiles cədvəli yalnız öz profilini oxumağa icazə verir, birləşmə ad qaytarmırdı).
+ */
 export async function fetchParticipants(eventId: string): Promise<Participant[]> {
-  const [regs, atts] = await Promise.all([
-    supabase
-      .from('event_registrations')
-      .select('user_id, status, profiles(first_name, last_name)')
-      .eq('event_id', eventId)
-      .eq('status', 'registered'),
-    supabase.from('event_attendance').select('user_id').eq('event_id', eventId),
-  ]);
+  const { data, error } = await supabase.rpc('event_participants', { p_event_id: eventId });
+  if (error) throw new Error(error.message);
 
-  if (regs.error) throw new Error(regs.error.message);
-
-  const attended = new Set(
-    ((atts.data as { user_id: string }[]) ?? []).map(a => a.user_id),
-  );
-
-  type Row = {
-    user_id: string;
-    profiles: { first_name: string | null; last_name: string | null } | null;
-  };
-
-  return ((regs.data as unknown as Row[]) ?? []).map(row => ({
+  type Row = { user_id: string; full_name: string | null; registered: boolean; attended: boolean };
+  return ((data as Row[] | null) ?? []).map(row => ({
     user_id: row.user_id,
-    full_name:
-      [row.profiles?.first_name, row.profiles?.last_name]
-        .filter(Boolean)
-        .join(' ') || null,
-    registered: true,
-    attended: attended.has(row.user_id),
+    full_name: row.full_name,
+    registered: row.registered,
+    attended: row.attended,
   }));
 }
 
