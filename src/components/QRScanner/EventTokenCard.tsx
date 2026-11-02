@@ -25,7 +25,7 @@ export function EventTokenCard() {
     setLoading(true);
 
     try {
-      const result = await fetchEventToken(5);
+      const result = await fetchEventToken(15);
       const url = await QRCode.toDataURL(result.token, {
         width: 560,
         margin: 2,
@@ -61,6 +61,13 @@ export function EventTokenCard() {
     return () => clearInterval(timer);
   }, [expiresAt, load]);
 
+  // Kod alınmayıbsa (zəif internet) avtomatik yenidən cəhd edirik.
+  useEffect(() => {
+    if (!error) return;
+    const retry = setTimeout(() => void load(), 5000);
+    return () => clearTimeout(retry);
+  }, [error, load]);
+
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
 
@@ -78,7 +85,7 @@ export function EventTokenCard() {
         <p className="py-12 text-sm text-gray-500">Yüklənir...</p>
       )}
 
-      {image && (
+      {image && remaining > 0 && (
         <>
           <img
             src={image}
@@ -92,6 +99,12 @@ export function EventTokenCard() {
               : 'Yenilənir...'}
           </p>
         </>
+      )}
+
+      {image && remaining === 0 && (
+        <p className="py-10 text-sm text-gray-500">
+          Kodun vaxtı bitib, yeni kod alınır... İnternet bağlantınızı yoxlayın.
+        </p>
       )}
 
       {error && (

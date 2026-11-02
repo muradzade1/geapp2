@@ -36,7 +36,8 @@ import {
   type EventRow,
   type Participant,
 } from '../../lib/api/events';
-import { scanAndCheckin } from '../../lib/api/checkin';
+import { checkinByQr } from '../../lib/api/checkin';
+import { scanWithCamera } from '../../lib/api/qr';
 import { relativeTime } from '../../lib/api/content';
 import { useBackHandler } from '../../lib/backHandler';
 import { TrainerProfile } from './TrainerProfile';
@@ -179,19 +180,41 @@ const TrainerApp: React.FC<TrainerAppProps> = ({ onBack }) => {
     if (!selectedEvent) return;
     setScanning(true);
     setScanMessage(null);
+    let saved = 0;
     try {
-      const result = await scanAndCheckin(selectedEvent.id);
-      if (result) {
-        setScanMessage(
-          result.already
-            ? `${result.full_name ?? 'İştirakçı'} onsuz da qeyd olunub.`
-            : `${result.full_name ?? 'İştirakçı'} qeyd olundu · +${result.points} xal`,
-        );
-        setParticipants(await fetchParticipants(selectedEvent.id));
-        await Promise.all([reloadEvents(), reloadStats()]);
+      // Fasiləsiz skan: hər gəncdən sonra nəticə qısa göstərilir və kamera yenidən açılır.
+      // Dayandırmaq üçün kameranı bağlamaq kifayətdir.
+      for (;;) {
+        let code: string | null = null;
+        try {
+          code = await scanWithCamera();
+        } catch (err) {
+          setScanMessage(err instanceof Error ? err.message : 'Skan alınmadı');
+          break;
+        }
+        if (!code) break;
+
+        let keepGoing = true;
+        try {
+          const result = await checkinByQr(selectedEvent.id, code);
+          if (!result.already) saved += 1;
+          setScanMessage(
+            result.already
+              ? `${result.full_name ?? 'İştirakçı'} onsuz da qeyd olunub.`
+              : `${result.full_name ?? 'İştirakçı'} qeyd olundu · +${result.points} xal`,
+          );
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Skan alınmadı';
+          setScanMessage(message);
+          // Kodun vaxtı bitibsə növbədəki gəncə keçirik; digər xətalarda dayanırıq.
+          keepGoing = /etibarsızdır/.test(message);
+        }
+        if (!keepGoing) break;
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
-    } catch (err) {
-      setScanMessage(err instanceof Error ? err.message : 'Skan alınmadı');
+      if (saved > 0) setScanMessage(`Cəmi ${saved} iştirakçı qeyd olundu.`);
+      setParticipants(await fetchParticipants(selectedEvent.id));
+      await Promise.all([reloadEvents(), reloadStats()]);
     } finally {
       setScanning(false);
     }

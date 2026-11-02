@@ -27,7 +27,8 @@ import {
   type EventRow,
   type Participant,
 } from '../../lib/api/events';
-import { scanAndCheckin } from '../../lib/api/checkin';
+import { checkinByQr } from '../../lib/api/checkin';
+import { scanWithCamera } from '../../lib/api/qr';
 import { ImageUploadField } from '../shared/ImageUploadField';
 
 interface Props {
@@ -154,21 +155,41 @@ export function HouseEventsManager({ houseId }: Props) {
     if (!openEvent) return;
     setScanning(true);
     setScanMessage(null);
+    let saved = 0;
     try {
-      const result = await scanAndCheckin(openEvent.id);
-      if (!result) {
-        setScanMessage(null);
-      } else if (result.already) {
-        setScanMessage(`${result.full_name ?? 'İştirakçı'} onsuz da qeyd olunub.`);
-      } else {
-        setScanMessage(
-          `${result.full_name ?? 'İştirakçı'} qeyd olundu · +${result.points} xal`,
-        );
+      // Fasiləsiz skan: hər gəncdən sonra nəticə qısa göstərilir və kamera yenidən açılır.
+      // Dayandırmaq üçün kameranı bağlamaq kifayətdir.
+      for (;;) {
+        let code: string | null = null;
+        try {
+          code = await scanWithCamera();
+        } catch (err) {
+          setScanMessage(err instanceof Error ? err.message : 'Skan alınmadı');
+          break;
+        }
+        if (!code) break;
+
+        let keepGoing = true;
+        try {
+          const result = await checkinByQr(openEvent.id, code);
+          if (!result.already) saved += 1;
+          setScanMessage(
+            result.already
+              ? `${result.full_name ?? 'İştirakçı'} onsuz da qeyd olunub.`
+              : `${result.full_name ?? 'İştirakçı'} qeyd olundu · +${result.points} xal`,
+          );
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Skan alınmadı';
+          setScanMessage(message);
+          // Kodun vaxtı bitibsə növbədəki gəncə keçirik; digər xətalarda dayanırıq.
+          keepGoing = /etibarsızdır/.test(message);
+        }
+        if (!keepGoing) break;
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
+      if (saved > 0) setScanMessage(`Cəmi ${saved} iştirakçı qeyd olundu.`);
       setParticipants(await fetchParticipants(openEvent.id));
       await reload();
-    } catch (err) {
-      setScanMessage(err instanceof Error ? err.message : 'Skan alınmadı');
     } finally {
       setScanning(false);
     }
