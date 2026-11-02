@@ -10,6 +10,8 @@ import {
   Loader2,
   ScanLine,
   RefreshCw,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
@@ -19,6 +21,8 @@ import {
   markAttendance,
   unmarkAttendance,
   updateEventStatus,
+  updateEvent,
+  deleteEvent,
   eventPhase,
   eventDate,
   eventTime,
@@ -53,6 +57,7 @@ export function HouseEventsManager({ houseId }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [openEvent, setOpenEvent] = useState<EventRow | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -83,6 +88,52 @@ export function HouseEventsManager({ houseId }: Props) {
       .then(({ data }) => setRooms((data as RoomOption[]) ?? []));
   }, [houseId]);
 
+  const toggleForm = () => {
+    if (showForm) {
+      setShowForm(false);
+      setEditingId(null);
+      setFormError(null);
+      return;
+    }
+    setEditingId(null);
+    setShowForm(true);
+  };
+
+  const startEdit = (event: EventRow) => {
+    setEditingId(event.id);
+    setFormError(null);
+    setForm({
+      title: event.title,
+      description: event.description ?? '',
+      category: event.category,
+      room_id: event.room_id ?? '',
+      starts_at: toLocalInput(new Date(event.starts_at)),
+      ends_at: toLocalInput(new Date(event.ends_at)),
+      capacity: String(event.capacity),
+      points_reward: String(event.points_reward),
+    });
+    setCoverPath(event.cover_path);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const removeEvent = async (event: EventRow) => {
+    try {
+      if (event.attended_count > 0) {
+        // İştirakı qeydə alınmış tədbiri silmək gənclərin xal və tarixçəsini pozar.
+        if (!window.confirm('Bu tədbirdə iştirak qeydə alınıb, ona görə silmək olmaz. Tədbir ləğv edilsin?')) return;
+        await updateEventStatus(event.id, 'cancelled');
+      } else {
+        const extra = event.registered_count > 0 ? ` (${event.registered_count} qeydiyyat da silinəcək)` : '';
+        if (!window.confirm(`"${event.title}" tədbiri silinsin?${extra}`)) return;
+        await deleteEvent(event.id);
+      }
+      await reload();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Əməliyyat alınmadı');
+    }
+  };
+
   const submit = async () => {
     if (!houseId) return;
     if (!form.title.trim()) {
@@ -97,7 +148,7 @@ export function HouseEventsManager({ houseId }: Props) {
     setSaving(true);
     setFormError(null);
     try {
-      await createEvent({
+      const eventData = {
         youth_house_id: houseId,
         title: form.title.trim(),
         description: form.description.trim() || undefined,
@@ -108,8 +159,14 @@ export function HouseEventsManager({ houseId }: Props) {
         cover_path: coverPath,
         capacity: Number(form.capacity) || 0,
         points_reward: Number(form.points_reward) || 0,
-        status: 'published',
-      });
+        status: 'published' as const,
+      };
+      if (editingId) {
+        await updateEvent(editingId, eventData);
+      } else {
+        await createEvent(eventData);
+      }
+      setEditingId(null);
       setShowForm(false);
       setForm({ ...form, title: '', description: '' });
       setCoverPath(null);
@@ -247,7 +304,7 @@ export function HouseEventsManager({ houseId }: Props) {
             Yenilə
           </button>
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={toggleForm}
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
             {showForm ? <X size={15} /> : <Plus size={15} />}
@@ -258,6 +315,18 @@ export function HouseEventsManager({ houseId }: Props) {
 
       {showForm && (
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          {editingId && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              <span>Tədbir redaktə olunur.</span>
+              <button
+                onClick={() => void submit()}
+                disabled={saving}
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {saving ? 'Yadda saxlanılır...' : 'Dəyişiklikləri yadda saxla'}
+              </button>
+            </div>
+          )}
           {formError && (
             <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {formError}
@@ -398,13 +467,27 @@ export function HouseEventsManager({ houseId }: Props) {
                 </p>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => void openParticipants(event)}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                 >
                   <UserCheck size={15} />
                   İştirak
+                </button>
+                <button
+                  onClick={() => startEdit(event)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
+                >
+                  <Pencil size={15} />
+                  Redaktə
+                </button>
+                <button
+                  onClick={() => void removeEvent(event)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
+                >
+                  <Trash2 size={15} />
+                  Sil
                 </button>
                 {event.status === 'published' && phase === 'finished' && (
                   <button

@@ -219,6 +219,15 @@ export async function updateEventStatus(
   if (error) throw new Error(error.message);
 }
 
+/** Tədbirin məlumatlarını dəyişir (ad, vaxt, tutum və s.). Status və mərkəz dəyişmir. */
+export async function updateEvent(eventId: string, patch: Partial<EventInput>) {
+  const changes = { ...patch };
+  delete changes.youth_house_id;
+  delete changes.status;
+  const { error } = await supabase.from('events').update(changes).eq('id', eventId);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteEvent(eventId: string) {
   const { error } = await supabase.from('events').delete().eq('id', eventId);
   if (error) throw new Error(error.message);
