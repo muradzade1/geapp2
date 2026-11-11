@@ -35,6 +35,8 @@ import { HouseQrDisplay } from './HouseQrDisplay';
 import { HouseEventsManager } from './HouseEventsManager';
 import { HouseTrainersManager } from './HouseTrainersManager';
 import { HouseNotifications } from './HouseNotifications';
+import { HouseYouthApprovals } from './HouseYouthApprovals';
+import { UserCheck as ApprovalIcon } from 'lucide-react';
 import { HouseReports } from './HouseReports';
 import { useHouseTodayLog, formatDuration, clock } from '../../lib/api/stats';
 import {
@@ -50,7 +52,7 @@ interface YouthHouseAppProps {
   onBack: () => void;
 }
 
-type ViewType = 'dashboard' | 'scanner' | 'checkinout' | 'events' | 'trainers' | 'notifications' | 'rooms' | 'reports';
+type ViewType = 'dashboard' | 'scanner' | 'checkinout' | 'events' | 'trainers' | 'approvals' | 'notifications' | 'rooms' | 'reports';
 
 interface NavItem {
   id: ViewType;
@@ -64,6 +66,7 @@ const navItems: NavItem[] = [
   { id: 'checkinout', label: 'Giriş', icon: <LogIn size={20} /> },
   { id: 'events', label: 'Tədbirlər', icon: <Calendar size={20} /> },
   { id: 'trainers', label: 'Təlimçilər', icon: <Users size={20} /> },
+  { id: 'approvals', label: 'Gənclər', icon: <ApprovalIcon size={20} /> },
   { id: 'notifications', label: 'Bildirişlər', icon: <Bell size={20} /> },
   { id: 'rooms', label: 'Otaqlar', icon: <DoorOpen size={20} /> },
   { id: 'reports', label: 'Hesabatlar', icon: <FileBarChart size={20} /> },
@@ -361,6 +364,12 @@ export function YouthHouseApp({ onBack }: YouthHouseAppProps) {
     />
   );
 
+  const renderApprovals = () => (
+    <HouseYouthApprovals
+      houseId={house?.status === 'approved' ? house.id : null}
+    />
+  );
+
   const renderRooms = () => <RoomsManager />;
 
   const renderReports = () => (
@@ -381,6 +390,8 @@ export function YouthHouseApp({ onBack }: YouthHouseAppProps) {
         return renderEvents();
       case 'trainers':
         return renderTrainers();
+      case 'approvals':
+        return renderApprovals();
       case 'notifications':
         return renderNotifications();
       case 'rooms':

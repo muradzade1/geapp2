@@ -14,7 +14,8 @@ import { AdminQrLogs } from './AdminQrLogs';
 import { AdminEvents } from './AdminEvents';
 import { AdminFeedback } from './AdminFeedback';
 import { PlatformsPanel } from './PlatformsPanel';
-import { Smartphone } from 'lucide-react';
+import { AdminAnnouncements } from './AdminAnnouncements';
+import { Smartphone, Megaphone } from 'lucide-react';
 import { useAdminCharts } from '../../lib/api/charts';
 import { useBackHandler } from '../../lib/backHandler';
 
@@ -22,7 +23,7 @@ interface AdminAppProps {
   onBack: () => void;
 }
 
-type Section = 'overview' | 'registrations' | 'houses' | 'events' | 'qr' | 'feedback' | 'reports' | 'platforms';
+type Section = 'overview' | 'registrations' | 'houses' | 'events' | 'qr' | 'feedback' | 'reports' | 'platforms' | 'announcements';
 
 const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Ümumi Baxış', icon: <LayoutDashboard size={18} /> },
@@ -33,6 +34,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'feedback', label: 'Feedback', icon: <MessageSquare size={18} /> },
   { id: 'reports', label: 'Məzmun', icon: <FileText size={18} /> },
   { id: 'platforms', label: 'Platformalar', icon: <Smartphone size={18} /> },
+  { id: 'announcements', label: 'Elanlar', icon: <Megaphone size={18} /> },
 ];
 
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#64748b'];
@@ -588,6 +590,7 @@ const AdminApp: React.FC<AdminAppProps> = ({ onBack }) => {
 
   const sectionContent: Record<Section, () => React.ReactNode> = {
     platforms: () => <PlatformsPanel />,
+    announcements: () => <AdminAnnouncements />,
     overview: renderOverview,
     registrations: () => <RegistrationsPanel />,
     houses: () => <HousesPanel />,
