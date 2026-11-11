@@ -43,6 +43,32 @@ interface ProfileContextValue {
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
 
+/**
+ * Giriş qapısı: AuthFlow daxil olmazdan əvvəl seçilmiş bölmənin rolunu bildirir.
+ * Hesabın rolu uyğun gəlmirsə, panel açılmır, çıxış edilir və xəta giriş ekranına ötürülür.
+ */
+export const loginGate: { role: AccountRole | null; at: number; mismatch: boolean; error: string } = {
+  role: null,
+  at: 0,
+  mismatch: false,
+  error: '',
+};
+export function armLoginGate(role: AccountRole) {
+  loginGate.role = role;
+  loginGate.at = Date.now();
+  loginGate.mismatch = false;
+  loginGate.error = '';
+}
+export function disarmLoginGate() {
+  loginGate.role = null;
+}
+const GATE_ROLE_NAMES: Record<string, string> = {
+  youth: 'Gənc',
+  trainer: 'Təlimçi',
+  youth_house: 'Gənclər Evi',
+  admin: 'Administrator',
+};
+
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<PlatformProfile | null>(null);
@@ -92,7 +118,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       void loadProfile(data.session);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    const handleAuthChange = (event: string, nextSession: Session | null) => {
       if (!active) return;
       setSession(nextSession);
       const nextUserId = nextSession?.user.id ?? null;
@@ -108,6 +134,42 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         setLoading(true);
         await loadProfile(nextSession);
       })();
+    };
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      const gateRole = loginGate.role;
+      if (event === 'SIGNED_IN' && nextSession && gateRole && Date.now() - loginGate.at < 15000) {
+        loginGate.role = null; // yalnız bir dəfə
+        void (async () => {
+          let wrongRole: string | null = null;
+          try {
+            const { data: row } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', nextSession.user.id)
+              .maybeSingle();
+            if (row && row.role !== gateRole) wrongRole = row.role as string;
+          } catch {
+            /* yoxlama alınmasa, adi qaydada davam edirik */
+          }
+          if (wrongRole) {
+            const own = GATE_ROLE_NAMES[wrongRole] ?? wrongRole;
+            const message = 'Bu hesab "' + own + '" hesabıdır. Geri qayıdıb "' + own + '" bölməsindən daxil olun.';
+            loginGate.mismatch = true;
+            loginGate.error = message;
+            window.setTimeout(() => {
+              loginGate.mismatch = false;
+              loginGate.error = '';
+            }, 5000);
+            window.dispatchEvent(new CustomEvent('login-role-mismatch', { detail: message }));
+            await supabase.auth.signOut();
+            return;
+          }
+          handleAuthChange(event, nextSession);
+        })();
+        return;
+      }
+      handleAuthChange(event, nextSession);
     });
 
     return () => {

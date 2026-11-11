@@ -1,6 +1,9 @@
-import { type Dispatch, type FormEvent, type ReactNode, type SetStateAction, useMemo, useState } from 'react';
+import { type Dispatch, type FormEvent, type ReactNode, type SetStateAction, useMemo, useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 import { ArrowLeft, Building2, GraduationCap, KeyRound, Loader2, ShieldCheck, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { armLoginGate, disarmLoginGate, loginGate } from '../../lib/profile';
 import { YOUTH_HOUSES } from '../../data/youthHouseList';
 
 type AccountRole = 'youth' | 'trainer' | 'youth_house' | 'admin';
@@ -85,7 +88,53 @@ const roleOptions = [
   { role: 'youth_house' as const, title: 'Gənclər Evi', description: 'Mərkəzinizin fəaliyyətini vahid paneldən idarə edin.', icon: Building2, tone: 'blue' },
 ];
 
-function Field({ label, name, type = 'text', required = true, value, onChange, placeholder, children }: { label: string; name: string; type?: string; required?: boolean; value: string; onChange: (value: string) => void; placeholder?: string; children?: ReactNode }) {
+let pendingLogin: { password: string; at: number; role: AccountRole } | null = null;
+const pwKey = (role: AccountRole) => `genc_pw_${role}`;
+const emailKey = (role: AccountRole) => `genc_email_${role}`;
+
+async function savePassword(role: AccountRole, password: string) {
+  if (!Capacitor.isNativePlatform()) return;
+  try { await SecureStorage.set(pwKey(role), password); } catch { /* ignore */ }
+}
+
+async function loadPassword(role: AccountRole): Promise<string | null> {
+  if (!Capacitor.isNativePlatform()) return null;
+  try {
+    const value = await SecureStorage.get(pwKey(role));
+    return typeof value === 'string' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+async function clearPassword(role: AccountRole) {
+  if (!Capacitor.isNativePlatform()) return;
+  try { await SecureStorage.remove(pwKey(role)); } catch { /* ignore */ }
+}
+
+/** Köhnə (rola bölünməmiş) yadda saxlanmış məlumatı bir dəfə silir. */
+let legacyCleaned = false;
+async function cleanLegacy() {
+  if (legacyCleaned) return;
+  legacyCleaned = true;
+  try { localStorage.removeItem('genc_email'); } catch { /* ignore */ }
+  if (!Capacitor.isNativePlatform()) return;
+  try { await SecureStorage.remove('genc_pw'); } catch { /* ignore */ }
+}
+
+async function forgetLogin(role: AccountRole) {
+  try { localStorage.removeItem(emailKey(role)); } catch { /* ignore */ }
+  await clearPassword(role);
+}
+
+const ROLE_NAMES: Record<string, string> = {
+  youth: 'Gənc',
+  trainer: 'Təlimçi',
+  youth_house: 'Gənclər Evi',
+  admin: 'Administrator',
+};
+
+function Field({ label, name, type = 'text', required = true, value, onChange, placeholder, autoComplete, children }: { label: string; name: string; type?: string; required?: boolean; value: string; onChange: (value: string) => void; placeholder?: string; autoComplete?: string; children?: ReactNode }) {
   const [isComposing, setIsComposing] = useState(false);
   return (
     <label className="block">
@@ -101,6 +150,7 @@ function Field({ label, name, type = 'text', required = true, value, onChange, p
           onCompositionEnd={(event) => { setIsComposing(false); onChange((event.target as HTMLInputElement).value); }}
           onBlur={(event) => onChange(event.target.value)}
           placeholder={placeholder}
+          autoComplete={autoComplete}
           autoCapitalize={type === 'email' ? 'none' : undefined}
           autoCorrect={type === 'email' ? 'off' : undefined}
           spellCheck={type === 'email' ? false : undefined}
@@ -126,8 +176,64 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
   const [role, setRole] = useState<AccountRole>(initialRole);
   const [values, setValues] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => {
+    const carried = loginGate.error;
+    loginGate.error = '';
+    return carried;
+  });
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const onMismatch = (event: Event) => {
+      setError(String((event as CustomEvent).detail ?? ''));
+      setBusy(false);
+    };
+    window.addEventListener('login-role-mismatch', onMismatch);
+    return () => window.removeEventListener('login-role-mismatch', onMismatch);
+  }, []);
+  const [remember, setRemember] = useState(() => {
+    try { return localStorage.getItem('genc_remember') !== '0'; } catch { return true; }
+  });
+  useEffect(() => {
+    if (screen !== 'login') return;
+    void cleanLegacy();
+    try {
+      const saved = localStorage.getItem(emailKey(role));
+      if (saved && localStorage.getItem('genc_remember') !== '0') {
+        setValues((current) => (current.email ? current : { ...current, email: saved }));
+      }
+    } catch { /* yaddaş əlçatmazdır: ignore */ }
+    let rememberOn = true;
+    try { rememberOn = localStorage.getItem('genc_remember') !== '0'; } catch { /* ignore */ }
+    if (rememberOn) {
+      void loadPassword(role).then((saved) => {
+        if (saved) setValues((current) => (current.password ? current : { ...current, password: saved }));
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, role]);
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== 'SIGNED_IN' || !pendingLogin) return;
+      const pending = pendingLogin;
+      pendingLogin = null;
+      if (Date.now() - pending.at < 60000) void savePassword(pending.role, pending.password);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+  const persistRemember = () => {
+    try {
+      if (remember && values.email) {
+        localStorage.setItem(emailKey(role), values.email.trim());
+        localStorage.setItem('genc_remember', '1');
+        pendingLogin = values.password ? { password: values.password, at: Date.now(), role } : null;
+      } else {
+        localStorage.removeItem(emailKey(role));
+        localStorage.setItem('genc_remember', '0');
+        pendingLogin = null;
+        void clearPassword(role);
+      }
+    } catch { /* ignore */ }
+  };
   const isAdmin = role === 'admin';
 
   const formTitle = useMemo(() => roleOptions.find((option) => option.role === role)?.title ?? '', [role]);
@@ -141,11 +247,13 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     event.preventDefault();
     resetFeedback();
     setBusy(true);
+    armLoginGate(role);
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email: (values.email ?? '').trim().toLowerCase(),
       password: values.password ?? '',
     });
     if (signInError || !signInData.session) {
+      disarmLoginGate();
       setBusy(false);
       setError('E-poçt və ya şifrə düzgün deyil.');
       return;
@@ -155,10 +263,22 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
       .select('role, status')
       .eq('id', signInData.session.user.id)
       .maybeSingle();
+    if (!profileRow && loginGate.mismatch) {
+      setBusy(false);
+      return;
+    }
     if (!profileRow) {
       await supabase.auth.signOut();
       setBusy(false);
       setError('Hesab məlumatları tapılmadı.');
+      return;
+    }
+    if (profileRow.role !== role) {
+      await supabase.auth.signOut();
+      await forgetLogin(role);
+      setBusy(false);
+      const own = ROLE_NAMES[profileRow.role] ?? profileRow.role;
+      setError(`Bu hesab "${own}" hesabıdır. Geri qayıdıb "${own}" bölməsindən daxil olun.`);
       return;
     }
     if (profileRow.role !== 'admin' && profileRow.status !== 'approved') {
@@ -211,7 +331,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
       setValues((current) => ({ ...current, email: emailCheck.email }));
     }
     if ((role === 'youth' || role === 'trainer') && (!values.education || !values.employmentStatus)) {
-      setError('Təhsil və məşğulluq vəziyyətini seçin.');
+      setError('Formanın aşağısındakı "Təhsil" və "Hazırkı məşğulluq vəziyyəti" xanalarını da seçin.');
       return;
     }
     if ((values.password ?? '').length < 8) {
@@ -292,7 +412,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     </Field>
   );
 
-  const input = (label: string, name: string, type = 'text', required = true, placeholder?: string) => <Field key={name} label={label} name={name} type={type} required={required} value={values[name] ?? ''} onChange={setValue(setValues, name)} placeholder={placeholder} />;
+  const input = (label: string, name: string, type = 'text', required = true, placeholder?: string, autoComplete?: string) => <Field key={name} label={label} name={name} type={type} required={required} value={values[name] ?? ''} onChange={setValue(setValues, name)} placeholder={placeholder} autoComplete={autoComplete} />;
 
   const choiceSelect = (label: string, name: string, options: string[]) => (
     <Field key={name} label={label} name={name} value={values[name] ?? ''} onChange={setValue(setValues, name)}>
@@ -353,7 +473,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
 
   return <AuthShell onBack={onBack}>
     <div className="mb-7 text-center"><div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">{isAdmin ? <ShieldCheck className="h-6 w-6" /> : <KeyRound className="h-6 w-6" />}</div><h1 className="text-2xl font-bold text-gray-900">{labels[role]}</h1><p className="mt-2 text-sm text-gray-500">Hesab məlumatlarınızla daxil olun</p></div>
-    <form onSubmit={signIn} className="space-y-4">{input(isAdmin ? 'E-poçt' : 'E-poçt və ya istifadəçi adı', 'email', 'email')}{input('Şifrə', 'password', 'password')}<Feedback error={error} message={message} /><button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />}Daxil ol</button></form>
+    <form onSubmit={(event) => { persistRemember(); return signIn(event); }} className="space-y-4">{input(isAdmin ? 'E-poçt' : 'E-poçt və ya istifadəçi adı', 'email', 'email', true, undefined, 'username')}{input('Şifrə', 'password', 'password', true, undefined, 'current-password')}<label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />Məni xatırla</label><Feedback error={error} message={message} /><button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />}Daxil ol</button></form>
     {!isAdmin && <div className="mt-5 flex items-center justify-between text-sm"><button type="button" onClick={resetPassword} className="font-medium text-emerald-700 hover:text-emerald-800">Şifrəni unutmusunuz?</button><button type="button" onClick={() => { resetFeedback(); setValues({}); setScreen('register-choice'); }} className="font-medium text-emerald-700 hover:text-emerald-800">Qeydiyyatdan keç</button></div>}
   </AuthShell>;
 }
