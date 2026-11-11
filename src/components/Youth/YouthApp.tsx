@@ -51,6 +51,7 @@ function MobileNav({ currentView, onNavigate }: { currentView: string; onNavigat
     { id: 'dashboard', label: 'Ana səhifə', icon: 'home' },
     { id: 'events', label: 'Tədbirlər', icon: 'calendar' },
     { id: 'qr-code', label: 'QR Kod', icon: 'qr' },
+    { id: 'feedback', label: 'Rəylər', icon: 'chat' },
     { id: 'profile', label: 'Profil', icon: 'user' },
   ];
 
@@ -88,6 +89,8 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
       return <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>;
     case 'gift':
       return <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a4 4 0 00-4-4c-1.38 0-2.63.56-3.54 1.46M12 8V6a4 4 0 014-4c1.38 0 2.63.56 3.54 1.46M21 12h-9m9 0v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8m18 0H3m0 0V8a2 2 0 012-2h14a2 2 0 012 2v4" /></svg>;
+    case 'chat':
+      return <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>;
     case 'user':
       return <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
     default:
