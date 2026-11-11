@@ -38,3 +38,6 @@ ios/App/Pods
 ios/App/build
 *.bak
 *.bak_*
+
+# Local Netlify folder
+.netlify
