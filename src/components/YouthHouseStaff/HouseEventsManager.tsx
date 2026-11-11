@@ -36,6 +36,8 @@ import { checkinByQr } from '../../lib/api/checkin';
 import { useHouseTeam } from '../../lib/api/trainer';
 import { scanWithCamera } from '../../lib/api/qr';
 import { ImageUploadField } from '../shared/ImageUploadField';
+import { exportPdf, exportXlsx, type ExportTable } from '../../lib/exportFile';
+import { Download as ExportIcon } from 'lucide-react';
 
 interface Props {
   houseId: string | null;
@@ -66,6 +68,7 @@ export function HouseEventsManager({ houseId }: Props) {
   const [openEvent, setOpenEvent] = useState<EventRow | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
+  const [exporting, setExporting] = useState<'xlsx' | 'pdf' | null>(null);
   const [busyUser, setBusyUser] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
@@ -222,6 +225,51 @@ export function HouseEventsManager({ houseId }: Props) {
       setParticipants([]);
     } finally {
       setParticipantsLoading(false);
+    }
+  };
+
+  const exportParticipants = async (kind: 'xlsx' | 'pdf') => {
+    if (!openEvent || participants.length === 0) return;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmt = (iso: string) => {
+      const d = new Date(iso);
+      return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    const trainerName = openEvent.trainer_id
+      ? team.find(member => member.trainer_id === openEvent.trainer_id)?.full_name ?? null
+      : null;
+    const attendedCount = participants.filter(p => p.attended).length;
+    const info = [
+      `Tarix: ${fmt(openEvent.starts_at)} — ${fmt(openEvent.ends_at)}`,
+      `Kateqoriya: ${openEvent.category}`,
+      ...(trainerName ? [`Təlimçi: ${trainerName}`] : []),
+      `Qeydiyyatlı: ${participants.length}, iştirak edən: ${attendedCount}`,
+    ];
+    const table: ExportTable = {
+      fileName: `${openEvent.title} - iştirakçılar`,
+      title: openEvent.title,
+      info,
+      columns: [
+        { header: '№', width: 5 },
+        { header: 'Ad Soyad', width: 34 },
+        { header: 'İştirak', width: 14 },
+        { header: 'İmza', width: 22 },
+      ],
+      rows: participants.map((p, index) => [
+        index + 1,
+        p.full_name ?? 'Ad göstərilməyib',
+        p.attended ? 'İştirak etdi' : 'Gəlmədi',
+        '',
+      ]),
+    };
+    setExporting(kind);
+    try {
+      if (kind === 'xlsx') await exportXlsx(table);
+      else await exportPdf(table);
+    } catch (err) {
+      setScanMessage(err instanceof Error ? `Fayl hazırlanmadı: ${err.message}` : 'Fayl hazırlanmadı');
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -608,6 +656,27 @@ export function HouseEventsManager({ houseId }: Props) {
                 </p>
               )}
             </div>
+
+            {!participantsLoading && participants.length > 0 && (
+              <div className="flex flex-wrap gap-2 border-b border-gray-100 px-5 py-3">
+                <button
+                  onClick={() => void exportParticipants('xlsx')}
+                  disabled={exporting !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-300 disabled:opacity-60"
+                >
+                  {exporting === 'xlsx' ? <Loader2 size={15} className="animate-spin" /> : <ExportIcon size={15} />}
+                  Excel
+                </button>
+                <button
+                  onClick={() => void exportParticipants('pdf')}
+                  disabled={exporting !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-300 disabled:opacity-60"
+                >
+                  {exporting === 'pdf' ? <Loader2 size={15} className="animate-spin" /> : <ExportIcon size={15} />}
+                  PDF
+                </button>
+              </div>
+            )}
 
             {participantsLoading && (
               <p className="px-5 py-8 text-center text-sm text-gray-500">Yüklənir...</p>

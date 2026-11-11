@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Download as ExportIcon } from 'lucide-react';
+import { exportPdf, exportXlsx, type ExportTable } from '../../lib/exportFile';
 import { AlertTriangle, CheckCircle2, Loader2, Pencil, RefreshCcw, Trash2, X, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { PlatformProfile } from '../../lib/profile';
@@ -44,6 +46,12 @@ export function RegistrationsPanel() {
   const [rows, setRows] = useState<PlatformProfile[]>([]);
   const [role, setRole] = useState<RoleFilter>('youth');
   const [status, setStatus] = useState<StatusFilter>('pending');
+  const [search, setSearch] = useState('');
+  const [houseFilter, setHouseFilter] = useState('');
+  const [genderFilter, setGenderFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [exporting, setExporting] = useState<'xlsx' | 'pdf' | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
@@ -65,9 +73,121 @@ export function RegistrationsPanel() {
     void load();
   }, []);
 
+  const field = (row: PlatformProfile, key: string): string => {
+    const value = (row as unknown as Record<string, unknown>)[key];
+    return typeof value === 'string' ? value : '';
+  };
+
+  const houseOptions = useMemo(() => {
+    const names = new Set<string>();
+    rows.forEach((row) => {
+      if (row.role === 'youth' && row.youth_house_name) names.add(row.youth_house_name);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'az'));
+  }, [rows]);
+
   const filtered = useMemo(() => {
-    return rows.filter((row) => row.role === role && (status === 'all' || row.status === status));
-  }, [rows, role, status]);
+    const query = search.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (row.role !== role) return false;
+      if (status !== 'all' && row.status !== status) return false;
+      if (role === 'youth' && houseFilter && row.youth_house_name !== houseFilter) return false;
+      if (role === 'youth' && genderFilter && field(row, 'gender') !== genderFilter) return false;
+      const day = (row.created_at ?? '').slice(0, 10);
+      if (dateFrom && day < dateFrom) return false;
+      if (dateTo && day > dateTo) return false;
+      if (query) {
+        const haystack = [row.first_name, row.last_name, row.email, row.phone, row.house_name, row.responsible_name, row.city]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+      return true;
+    });
+  }, [rows, role, status, search, houseFilter, genderFilter, dateFrom, dateTo]);
+
+  const hasFilters = Boolean(search || houseFilter || genderFilter || dateFrom || dateTo);
+
+  const exportList = async (kind: 'xlsx' | 'pdf') => {
+    if (filtered.length === 0) return;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmtDate = (iso: string) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+    };
+    const ageOf = (iso: string): string | number => {
+      if (!iso) return '';
+      const born = new Date(iso);
+      if (Number.isNaN(born.getTime())) return '';
+      const now = new Date();
+      let age = now.getFullYear() - born.getFullYear();
+      const m = now.getMonth() - born.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < born.getDate())) age -= 1;
+      return age;
+    };
+    const fullName = (row: PlatformProfile) => `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim();
+    const statusText = (row: PlatformProfile) => statusLabels[row.status as Exclude<StatusFilter, 'all'>] ?? row.status;
+
+    let columns: { header: string; width?: number }[];
+    let body: (string | number)[][];
+    if (role === 'youth') {
+      columns = [
+        { header: '№', width: 4 }, { header: 'Ad Soyad', width: 26 }, { header: 'Cins', width: 8 },
+        { header: 'Doğum tarixi', width: 13 }, { header: 'Yaş', width: 5 }, { header: 'Telefon', width: 15 },
+        { header: 'E-poçt', width: 30 }, { header: 'Şəhər', width: 14 }, { header: 'Gənclər Evi', width: 22 },
+        { header: 'Təhsil', width: 24 }, { header: 'Məşğulluq', width: 14 }, { header: 'Status', width: 12 },
+        { header: 'Qeydiyyat', width: 12 },
+      ];
+      body = filtered.map((row, i) => [
+        i + 1, fullName(row), field(row, 'gender'), fmtDate(field(row, 'birth_date')), ageOf(field(row, 'birth_date')),
+        row.phone ?? '', row.email ?? '', row.city ?? '', row.youth_house_name ?? '',
+        row.education ?? '', row.employment_status ?? '', statusText(row), fmtDate(row.created_at),
+      ]);
+    } else if (role === 'trainer') {
+      columns = [
+        { header: '№', width: 4 }, { header: 'Ad Soyad', width: 26 }, { header: 'Telefon', width: 15 },
+        { header: 'E-poçt', width: 30 }, { header: 'Şəhər', width: 14 }, { header: 'İxtisas', width: 24 },
+        { header: 'İş yeri', width: 24 }, { header: 'Status', width: 12 }, { header: 'Qeydiyyat', width: 12 },
+      ];
+      body = filtered.map((row, i) => [
+        i + 1, fullName(row), row.phone ?? '', row.email ?? '', row.city ?? '',
+        row.specialization ?? '', field(row, 'workplace'), statusText(row), fmtDate(row.created_at),
+      ]);
+    } else {
+      columns = [
+        { header: '№', width: 4 }, { header: 'Mərkəz', width: 28 }, { header: 'Məsul şəxs', width: 24 },
+        { header: 'Məsul e-poçt', width: 28 }, { header: 'Telefon', width: 15 }, { header: 'E-poçt', width: 28 },
+        { header: 'Şəhər', width: 14 }, { header: 'Status', width: 12 }, { header: 'Qeydiyyat', width: 12 },
+      ];
+      body = filtered.map((row, i) => [
+        i + 1, row.house_name ?? '', row.responsible_name ?? '', field(row, 'responsible_email'),
+        row.phone ?? '', row.email ?? '', row.city ?? '', statusText(row), fmtDate(row.created_at),
+      ]);
+    }
+
+    const info = [
+      `Status: ${status === 'all' ? 'Hamısı' : statusLabels[status]}`,
+      ...(role === 'youth' && houseFilter ? [`Gənclər Evi: ${houseFilter}`] : []),
+      ...(role === 'youth' && genderFilter ? [`Cins: ${genderFilter}`] : []),
+      ...(dateFrom || dateTo ? [`Qeydiyyat tarixi: ${dateFrom || '...'} — ${dateTo || '...'}`] : []),
+      ...(search.trim() ? [`Axtarış: ${search.trim()}`] : []),
+      `Say: ${filtered.length}`,
+      `Hazırlanma tarixi: ${fmtDate(new Date().toISOString())}`,
+    ];
+    const table: ExportTable = { fileName: roleLabels[role], title: roleLabels[role], info, columns, rows: body };
+    setExporting(kind);
+    try {
+      if (kind === 'xlsx') await exportXlsx(table);
+      else await exportPdf(table);
+    } catch (err) {
+      setError(err instanceof Error ? `Fayl hazırlanmadı: ${err.message}` : 'Fayl hazırlanmadı');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const counts = useMemo(() => {
     const byRole = { youth: 0, trainer: 0, youth_house: 0 } as Record<RoleFilter, number>;
@@ -190,6 +310,86 @@ export function RegistrationsPanel() {
             {key === 'all' ? 'Hamısı' : statusLabels[key]}
           </button>
         ))}
+      </div>
+
+      <div className="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Ad, e-poçt, telefon və ya şəhər üzrə axtar"
+            className="min-w-[14rem] flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          />
+          {role === 'youth' && (
+            <select
+              value={houseFilter}
+              onChange={(event) => setHouseFilter(event.target.value)}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">Bütün Gənclər Evləri</option>
+              {houseOptions.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          )}
+          {role === 'youth' && (
+            <select
+              value={genderFilter}
+              onChange={(event) => setGenderFilter(event.target.value)}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">Cins: hamısı</option>
+              <option value="kişi">Kişi</option>
+              <option value="qadın">Qadın</option>
+            </select>
+          )}
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs font-medium text-gray-500">
+            Qeydiyyat tarixi (başlanğıc)
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="mt-1 block rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800"
+            />
+          </label>
+          <label className="text-xs font-medium text-gray-500">
+            Qeydiyyat tarixi (son)
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="mt-1 block rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800"
+            />
+          </label>
+          {hasFilters && (
+            <button
+              onClick={() => { setSearch(''); setHouseFilter(''); setGenderFilter(''); setDateFrom(''); setDateTo(''); }}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:border-gray-300"
+            >
+              Filtrləri təmizlə
+            </button>
+          )}
+          <span className="ml-auto text-sm text-gray-500">Tapıldı: <strong className="text-gray-800">{filtered.length}</strong></span>
+          <button
+            onClick={() => void exportList('xlsx')}
+            disabled={exporting !== null || filtered.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exporting === 'xlsx' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExportIcon className="h-4 w-4" />}
+            Excel
+          </button>
+          <button
+            onClick={() => void exportList('pdf')}
+            disabled={exporting !== null || filtered.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exporting === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExportIcon className="h-4 w-4" />}
+            PDF
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
