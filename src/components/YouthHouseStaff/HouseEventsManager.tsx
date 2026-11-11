@@ -11,6 +11,7 @@ import {
   ScanLine,
   RefreshCw,
   Pencil,
+  Copy,
   Trash2,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -32,6 +33,7 @@ import {
   type Participant,
 } from '../../lib/api/events';
 import { checkinByQr } from '../../lib/api/checkin';
+import { useHouseTeam } from '../../lib/api/trainer';
 import { scanWithCamera } from '../../lib/api/qr';
 import { ImageUploadField } from '../shared/ImageUploadField';
 
@@ -58,6 +60,8 @@ export function HouseEventsManager({ houseId }: Props) {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [copiedFrom, setCopiedFrom] = useState<string | null>(null);
+  const { team } = useHouseTeam(houseId);
 
   const [openEvent, setOpenEvent] = useState<EventRow | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -72,6 +76,7 @@ export function HouseEventsManager({ houseId }: Props) {
     description: '',
     category: EVENT_CATEGORIES[0] as string,
     room_id: '',
+    trainer_id: '',
     starts_at: toLocalInput(new Date(now.getTime() + 3600000)),
     ends_at: toLocalInput(new Date(now.getTime() + 7200000)),
     capacity: '20',
@@ -92,14 +97,17 @@ export function HouseEventsManager({ houseId }: Props) {
     if (showForm) {
       setShowForm(false);
       setEditingId(null);
+      setCopiedFrom(null);
       setFormError(null);
       return;
     }
     setEditingId(null);
+    setCopiedFrom(null);
     setShowForm(true);
   };
 
   const startEdit = (event: EventRow) => {
+    setCopiedFrom(null);
     setEditingId(event.id);
     setFormError(null);
     setForm({
@@ -107,8 +115,34 @@ export function HouseEventsManager({ houseId }: Props) {
       description: event.description ?? '',
       category: event.category,
       room_id: event.room_id ?? '',
+      trainer_id: event.trainer_id ?? '',
       starts_at: toLocalInput(new Date(event.starts_at)),
       ends_at: toLocalInput(new Date(event.ends_at)),
+      capacity: String(event.capacity),
+      points_reward: String(event.points_reward),
+    });
+    setCoverPath(event.cover_path);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Mövcud tədbirin məlumatları ilə yeni forma açır. Tarix 7 gün sonraya (həftəlik təkrar) keçirilir,
+  // keçmişdə qalarsa gələcəyə çatana qədər həftə-həftə irəli çəkilir.
+  const startCopy = (event: EventRow) => {
+    const duration = new Date(event.ends_at).getTime() - new Date(event.starts_at).getTime();
+    let start = new Date(event.starts_at).getTime() + 7 * 86400000;
+    while (start < Date.now()) start += 7 * 86400000;
+    setEditingId(null);
+    setCopiedFrom(event.title);
+    setFormError(null);
+    setForm({
+      title: event.title,
+      description: event.description ?? '',
+      category: event.category,
+      room_id: event.room_id ?? '',
+      trainer_id: event.trainer_id ?? '',
+      starts_at: toLocalInput(new Date(start)),
+      ends_at: toLocalInput(new Date(start + Math.max(duration, 0))),
       capacity: String(event.capacity),
       points_reward: String(event.points_reward),
     });
@@ -154,6 +188,7 @@ export function HouseEventsManager({ houseId }: Props) {
         description: form.description.trim() || undefined,
         category: form.category,
         room_id: form.room_id || null,
+        trainer_id: form.trainer_id || null,
         starts_at: new Date(form.starts_at).toISOString(),
         ends_at: new Date(form.ends_at).toISOString(),
         cover_path: coverPath,
@@ -315,6 +350,11 @@ export function HouseEventsManager({ houseId }: Props) {
 
       {showForm && (
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          {copiedFrom && !editingId && (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              «{copiedFrom}» tədbirindən kopyalandı. Tarixi (7 gün sonraya qoyulub) və lazım olan sahələri yoxlayıb tədbiri yaradın.
+            </div>
+          )}
           {editingId && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
               <span>Tədbir redaktə olunur.</span>
@@ -366,6 +406,23 @@ export function HouseEventsManager({ houseId }: Props) {
                 {rooms.map(room => (
                   <option key={room.id} value={room.id}>
                     {room.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-600">
+                Təlimçi
+              </label>
+              <select
+                value={form.trainer_id}
+                onChange={e => setForm({ ...form, trainer_id: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
+              >
+                <option value="">Təyin olunmayıb (mərkəzin təlimçiləri görür)</option>
+                {team.map(member => (
+                  <option key={member.trainer_id} value={member.trainer_id}>
+                    {member.full_name ?? member.email ?? 'Ad göstərilməyib'}
                   </option>
                 ))}
               </select>
@@ -459,6 +516,13 @@ export function HouseEventsManager({ houseId }: Props) {
                     {event.capacity > 0 ? `/${event.capacity}` : ''} yazılıb ·{' '}
                     {event.attended_count} iştirak
                   </span>
+                  {event.trainer_id && (
+                    <span className="flex items-center gap-1.5 text-blue-700">
+                      <Users size={14} />
+                      {team.find(member => member.trainer_id === event.trainer_id)?.full_name ??
+                        'Təlimçi təyin olunub'}
+                    </span>
+                  )}
                   {event.points_reward > 0 && (
                     <span className="flex items-center gap-1.5 text-amber-600">
                       <Trophy size={14} />+{event.points_reward}
@@ -481,6 +545,13 @@ export function HouseEventsManager({ houseId }: Props) {
                 >
                   <Pencil size={15} />
                   Redaktə
+                </button>
+                <button
+                  onClick={() => startCopy(event)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
+                >
+                  <Copy size={15} />
+                  Kopyala
                 </button>
                 <button
                   onClick={() => void removeEvent(event)}

@@ -37,6 +37,7 @@ export type EventInput = {
   description?: string;
   category: string;
   room_id?: string | null;
+  trainer_id?: string | null;
   cover_path?: string | null;
   starts_at: string;
   ends_at: string;
