@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { Capacitor } from '@capacitor/core';
 
 export type AccountRole = 'youth' | 'trainer' | 'youth_house' | 'admin';
 export type AccountStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
@@ -83,16 +84,27 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let knownUserId: string | null = null;
     void supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
       setSession(data.session);
+      knownUserId = data.session?.user.id ?? null;
       void loadProfile(data.session);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
       setSession(nextSession);
+      const nextUserId = nextSession?.user.id ?? null;
+      const sameUser = nextUserId !== null && nextUserId === knownUserId;
+      knownUserId = nextUserId;
       (async () => {
+        // Eyni istifadəçi (tətbiqə qayıdış, token yenilənməsi): ekranı "Yüklənir"ə çevirmirik,
+        // yoxsa açıq formalar və tablar silinir. Profil yalnız USER_UPDATED zamanı səssiz yenilənir.
+        if (sameUser) {
+          if (event === 'USER_UPDATED') await loadProfile(nextSession);
+          return;
+        }
         setLoading(true);
         await loadProfile(nextSession);
       })();
@@ -104,8 +116,19 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Hesabın hansı platformadan (android / ios / web) istifadə olunduğunu bazaya bildirir.
+  useEffect(() => {
+    if (!profile?.id) return;
+    void (async () => {
+      try {
+        await supabase.rpc('set_my_platform', { p_platform: Capacitor.getPlatform() });
+      } catch {
+        /* platforma yazılmasa da tətbiq işləməlidir */
+      }
+    })();
+  }, [profile?.id]);
+
   const refresh = async () => {
-    setLoading(true);
     await loadProfile(session);
   };
 
