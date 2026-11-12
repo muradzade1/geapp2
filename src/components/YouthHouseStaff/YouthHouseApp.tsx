@@ -12,6 +12,8 @@ import { HouseNotifications } from './HouseNotifications';
 import { HouseYouthApprovals } from './HouseYouthApprovals';
 import { HouseYouthList } from './HouseYouthList';
 import { HouseChat } from '../Chat/HouseChat';
+import HouseCertificates from '../Certificates/HouseCertificates';
+import { Award as CertificateIcon } from 'lucide-react';
 import { ChatMenuIcon } from '../Chat/ChatNavIcon';
 import { HouseRewards } from '../Rewards/RewardsManager';
 import { UserCheck as ApprovalIcon, ClipboardList as MembersIcon } from 'lucide-react';
@@ -30,7 +32,7 @@ interface YouthHouseAppProps {
   onBack: () => void;
 }
 
-type ViewType = 'dashboard' | 'scanner' | 'checkinout' | 'events' | 'trainers' | 'approvals' | 'members' | 'chat' | 'rewards' | 'notifications' | 'rooms' | 'reports';
+type ViewType = 'dashboard' | 'scanner' | 'checkinout' | 'events' | 'trainers' | 'approvals' | 'members' | 'chat' | 'certificates' | 'rewards' | 'notifications' | 'rooms' | 'reports';
 
 interface NavItem {
   id: ViewType;
@@ -47,6 +49,7 @@ const navItems: NavItem[] = [
   { id: 'approvals', label: 'Gənclər', icon: <ApprovalIcon size={20} /> },
   { id: 'members', label: 'Siyahı', icon: <MembersIcon size={20} /> },
   { id: 'chat', label: 'Çat', icon: <ChatMenuIcon size={20} /> },
+  { id: 'certificates', label: 'Sertifikatlar', icon: <CertificateIcon size={20} /> },
   { id: 'rewards', label: 'Hədiyyələr', icon: <RewardIcon size={20} /> },
   { id: 'notifications', label: 'Bildirişlər', icon: <Bell size={20} /> },
   { id: 'rooms', label: 'Otaqlar', icon: <DoorOpen size={20} /> },
@@ -387,6 +390,8 @@ export function YouthHouseApp({ onBack }: YouthHouseAppProps) {
         return renderMembers();
       case 'chat':
         return renderChat();
+      case 'certificates':
+        return <HouseCertificates houseId={house?.status === 'approved' ? house.id : null} />;
       case 'rewards':
         return renderRewards();
       case 'notifications':

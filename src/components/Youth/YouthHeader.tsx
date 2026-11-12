@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, User, LogOut, Menu, X, Home, MapPin, Calendar, QrCode, Award, CreditCard, Newspaper, Target, MessageSquare, Gift, Briefcase } from 'lucide-react';
+import { Bell, User, LogOut, Menu, X, Home, MapPin, Calendar, QrCode, Award, CreditCard, Newspaper, Target, MessageSquare, Gift, Briefcase, Award as CertIcon } from 'lucide-react';
 import { ChatMenuIcon } from '../Chat/ChatNavIcon';
 import { useNotifications } from '../../lib/api/content';
 import { fullName, useProfile } from '../../lib/profile';
@@ -21,6 +21,7 @@ const navItems = [
   { id: 'challenges', label: 'Çağırışlar', icon: Target },
   { id: 'rewards', label: 'Hədiyyələr', icon: Gift },
   { id: 'vacancies', label: 'Vakansiyalar', icon: Briefcase },
+  { id: 'certificates', label: 'Sertifikatlarım', icon: CertIcon },
   { id: 'chat', label: 'Çat', icon: ChatMenuIcon },
   { id: 'feedback', label: 'Rəylər', icon: MessageSquare },
   { id: 'profile', label: 'Şəxsi kabinet', icon: User },

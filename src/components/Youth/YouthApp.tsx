@@ -13,6 +13,7 @@ import NotificationsPage from '../Notifications/NotificationsPage';
 import FeedbackPage from '../Feedback/FeedbackPage';
 import RewardsPage from '../Rewards/RewardsPage';
 import JobsFeedPage from '../Jobs/JobsFeedPage';
+import MyCertificates from '../Certificates/MyCertificates';
 import { HouseChat } from '../Chat/HouseChat';
 import { useBackHandler } from '../../lib/backHandler';
 
@@ -45,6 +46,7 @@ export function YouthApp({ onBack }: YouthAppProps) {
         {view === 'feedback' && <FeedbackPage />}
         {view === 'rewards' && <RewardsPage />}
         {view === 'vacancies' && <JobsFeedPage />}
+        {view === 'certificates' && <MyCertificates />}
         {view === 'chat' && (
           <div className="mx-auto max-w-3xl px-4 py-4">
             <HouseChat />

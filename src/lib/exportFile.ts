@@ -156,3 +156,57 @@ export async function exportPdf(table: ExportTable): Promise<void> {
   const blob = await maker.createPdf(docDefinition).getBlob();
   await saveBlob(`${safeName(table.fileName)} ${stamp()}.pdf`, blob);
 }
+
+export interface CertificateData {
+  fullName: string;
+  eventTitle: string;
+  eventDate: string;
+  houseName: string;
+  code: string;
+}
+
+/** Tədbir iştirakçısı üçün A4 üfüqi sertifikat (PDF). */
+export async function exportCertificatePdf(data: CertificateData): Promise<void> {
+  const [{ default: pdfMake }, { default: vfs }] = await Promise.all([
+    import('pdfmake/build/pdfmake'),
+    import('pdfmake/build/vfs_fonts'),
+  ]);
+  const maker = pdfMake as unknown as {
+    addVirtualFileSystem?: (files: unknown) => void;
+    vfs?: unknown;
+    createPdf: (doc: unknown) => { getBlob: () => Promise<Blob> };
+  };
+  if (typeof maker.addVirtualFileSystem === 'function') maker.addVirtualFileSystem(vfs);
+  else maker.vfs = vfs;
+
+  const docDefinition = {
+    pageSize: 'A4',
+    pageOrientation: 'landscape',
+    pageMargins: [60, 70, 60, 50],
+    defaultStyle: { font: 'Roboto' },
+    background: () => ({
+      canvas: [
+        { type: 'rect', x: 20, y: 20, w: 802, h: 555, lineWidth: 3, lineColor: '#1D4ED8' },
+        { type: 'rect', x: 28, y: 28, w: 786, h: 539, lineWidth: 1, lineColor: '#93C5FD' },
+      ],
+    }),
+    content: [
+      { text: 'SERTİFİKAT', fontSize: 40, bold: true, color: '#1D4ED8', alignment: 'center', characterSpacing: 4, margin: [0, 10, 0, 6] },
+      { text: 'Gənclər Evi platforması', fontSize: 13, color: '#6B7280', alignment: 'center', margin: [0, 0, 0, 34] },
+      { text: 'Bu sertifikat təqdim olunur', fontSize: 14, color: '#4B5563', alignment: 'center', margin: [0, 0, 0, 10] },
+      { text: data.fullName, fontSize: 30, bold: true, color: '#111827', alignment: 'center', margin: [0, 0, 0, 14] },
+      { text: 'aşağıdakı tədbirdə iştirakına görə:', fontSize: 14, color: '#4B5563', alignment: 'center', margin: [0, 0, 0, 10] },
+      { text: data.eventTitle, fontSize: 22, bold: true, color: '#111827', alignment: 'center', margin: [0, 0, 0, 10] },
+      {
+        text: [data.eventDate, data.houseName].filter(Boolean).join('  ·  '),
+        fontSize: 14,
+        color: '#4B5563',
+        alignment: 'center',
+        margin: [0, 0, 0, 40],
+      },
+      { text: `Sertifikat kodu: ${data.code}`, fontSize: 11, color: '#6B7280', alignment: 'center' },
+    ],
+  };
+  const blob = await maker.createPdf(docDefinition).getBlob();
+  await saveBlob(`${safeName(`Sertifikat ${data.eventTitle}`)} ${stamp()}.pdf`, blob);
+}
