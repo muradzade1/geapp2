@@ -4,12 +4,14 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App.tsx';
 import { AppErrorBoundary } from './components/AppErrorBoundary.tsx';
 import { initNativeShell, isNativePlatform } from './lib/native';
+import { installImeCommitGuard } from './lib/imeCommit';
 import './index.css';
 
 if (!isNativePlatform()) {
   registerSW({ immediate: true });
 }
 
+installImeCommitGuard();
 void initNativeShell();
 
 createRoot(document.getElementById('root')!).render(
