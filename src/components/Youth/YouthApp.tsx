@@ -12,6 +12,8 @@ import { ChallengesPage } from '../Challenges/ChallengesPage';
 import NotificationsPage from '../Notifications/NotificationsPage';
 import FeedbackPage from '../Feedback/FeedbackPage';
 import RewardsPage from '../Rewards/RewardsPage';
+import JobsFeedPage from '../Jobs/JobsFeedPage';
+import { HouseChat } from '../Chat/HouseChat';
 import { useBackHandler } from '../../lib/backHandler';
 
 interface YouthAppProps {
@@ -42,6 +44,12 @@ export function YouthApp({ onBack }: YouthAppProps) {
         {view === 'notifications' && <NotificationsPage />}
         {view === 'feedback' && <FeedbackPage />}
         {view === 'rewards' && <RewardsPage />}
+        {view === 'vacancies' && <JobsFeedPage />}
+        {view === 'chat' && (
+          <div className="mx-auto max-w-3xl px-4 py-4">
+            <HouseChat />
+          </div>
+        )}
       </main>
       <MobileNav currentView={view} onNavigate={setView} />
     </div>

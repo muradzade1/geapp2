@@ -12,7 +12,8 @@ import { AdminFeedback } from './AdminFeedback';
 import { PlatformsPanel } from './PlatformsPanel';
 import { AdminAnnouncements } from './AdminAnnouncements';
 import { AdminRewards } from '../Rewards/RewardsManager';
-import { Smartphone, Megaphone } from 'lucide-react';
+import JobCenter from '../Jobs/JobCenter';
+import { Smartphone, Megaphone, Briefcase as JobNavIcon } from 'lucide-react';
 import { useAdminCharts } from '../../lib/api/charts';
 import { useBackHandler } from '../../lib/backHandler';
 
@@ -20,7 +21,7 @@ interface AdminAppProps {
   onBack: () => void;
 }
 
-type Section = 'overview' | 'registrations' | 'houses' | 'events' | 'qr' | 'feedback' | 'reports' | 'platforms' | 'announcements' | 'rewards';
+type Section = 'overview' | 'registrations' | 'houses' | 'events' | 'qr' | 'feedback' | 'reports' | 'platforms' | 'announcements' | 'rewards' | 'jobs';
 
 const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Ümumi Baxış', icon: <LayoutDashboard size={18} /> },
@@ -33,6 +34,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'platforms', label: 'Platformalar', icon: <Smartphone size={18} /> },
   { id: 'announcements', label: 'Elanlar', icon: <Megaphone size={18} /> },
   { id: 'rewards', label: 'Hədiyyələr', icon: <GiftNavIcon size={18} /> },
+  { id: 'jobs', label: 'Vakansiya mərkəzi', icon: <JobNavIcon size={18} /> },
 ];
 
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#64748b'];
@@ -590,6 +592,7 @@ const AdminApp: React.FC<AdminAppProps> = ({ onBack }) => {
     platforms: () => <PlatformsPanel />,
     announcements: () => <AdminAnnouncements />,
     rewards: () => <AdminRewards />,
+    jobs: () => <JobCenter />,
     overview: renderOverview,
     registrations: () => <RegistrationsPanel />,
     houses: () => <HousesPanel />,

@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { HouseChat } from '../Chat/HouseChat';
+import { ChatMenuIcon } from '../Chat/ChatNavIcon';
 import {
   ArrowLeft,
   LayoutDashboard,
@@ -46,7 +48,7 @@ interface TrainerAppProps {
   onBack: () => void;
 }
 
-type TabKey = 'main' | 'trainings' | 'participants' | 'feedback' | 'profile';
+type TabKey = 'main' | 'trainings' | 'participants' | 'feedback' | 'chat' | 'profile';
 
 const TrainerApp: React.FC<TrainerAppProps> = ({ onBack }) => {
   useBackHandler(() => {
@@ -227,6 +229,7 @@ const TrainerApp: React.FC<TrainerAppProps> = ({ onBack }) => {
     { key: 'trainings', label: 'Tədbirlərim', icon: <BookOpen size={18} /> },
     { key: 'participants', label: 'İştirakçılar', icon: <Users size={18} /> },
     { key: 'feedback', label: 'Rəylər', icon: <MessageSquare size={18} /> },
+    { key: 'chat', label: 'Çat', icon: <ChatMenuIcon size={18} /> },
     { key: 'profile', label: 'Profil', icon: <User size={18} /> },
   ];
 
@@ -604,6 +607,7 @@ const TrainerApp: React.FC<TrainerAppProps> = ({ onBack }) => {
     trainings: renderTrainings,
     participants: renderParticipants,
     feedback: renderFeedback,
+    chat: () => <HouseChat />,
     profile: () => <TrainerProfile />,
   };
 
