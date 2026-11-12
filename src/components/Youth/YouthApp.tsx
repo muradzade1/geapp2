@@ -11,6 +11,7 @@ import { ProfilePage } from '../Profile/ProfilePage';
 import { ChallengesPage } from '../Challenges/ChallengesPage';
 import NotificationsPage from '../Notifications/NotificationsPage';
 import FeedbackPage from '../Feedback/FeedbackPage';
+import RewardsPage from '../Rewards/RewardsPage';
 import { useBackHandler } from '../../lib/backHandler';
 
 interface YouthAppProps {
@@ -40,6 +41,7 @@ export function YouthApp({ onBack }: YouthAppProps) {
         {view === 'challenges' && <ChallengesPage />}
         {view === 'notifications' && <NotificationsPage />}
         {view === 'feedback' && <FeedbackPage />}
+        {view === 'rewards' && <RewardsPage />}
       </main>
       <MobileNav currentView={view} onNavigate={setView} />
     </div>

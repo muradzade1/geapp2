@@ -1,10 +1,6 @@
 import TrendChart from './TrendChart';
 import React, { useState } from 'react';
-import {
-  ArrowLeft, LayoutDashboard, Building2, Calendar, QrCode, MessageSquare, FileText,
-  Users, UserCheck, MapPin, LogIn, Activity, Award, CreditCard, Star, TrendingUp,
-  Download, Filter, AlertTriangle, Menu, X, UserPlus
-} from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Building2, Calendar, QrCode, MessageSquare, FileText, Users, UserCheck, MapPin, LogIn, Activity, Award, CreditCard, Star, TrendingUp, Download, Filter, AlertTriangle, Menu, X, UserPlus, Gift as GiftNavIcon } from 'lucide-react';
 import { youthHouses, events, qrScans, feedbacks, trainers } from '../../data/mockData';
 import { useAdminDashboard } from '../../lib/api/admin';
 import { RegistrationsPanel } from './RegistrationsPanel';
@@ -15,6 +11,7 @@ import { AdminEvents } from './AdminEvents';
 import { AdminFeedback } from './AdminFeedback';
 import { PlatformsPanel } from './PlatformsPanel';
 import { AdminAnnouncements } from './AdminAnnouncements';
+import { AdminRewards } from '../Rewards/RewardsManager';
 import { Smartphone, Megaphone } from 'lucide-react';
 import { useAdminCharts } from '../../lib/api/charts';
 import { useBackHandler } from '../../lib/backHandler';
@@ -23,7 +20,7 @@ interface AdminAppProps {
   onBack: () => void;
 }
 
-type Section = 'overview' | 'registrations' | 'houses' | 'events' | 'qr' | 'feedback' | 'reports' | 'platforms' | 'announcements';
+type Section = 'overview' | 'registrations' | 'houses' | 'events' | 'qr' | 'feedback' | 'reports' | 'platforms' | 'announcements' | 'rewards';
 
 const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Ümumi Baxış', icon: <LayoutDashboard size={18} /> },
@@ -35,6 +32,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'reports', label: 'Məzmun', icon: <FileText size={18} /> },
   { id: 'platforms', label: 'Platformalar', icon: <Smartphone size={18} /> },
   { id: 'announcements', label: 'Elanlar', icon: <Megaphone size={18} /> },
+  { id: 'rewards', label: 'Hədiyyələr', icon: <GiftNavIcon size={18} /> },
 ];
 
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#64748b'];
@@ -591,6 +589,7 @@ const AdminApp: React.FC<AdminAppProps> = ({ onBack }) => {
   const sectionContent: Record<Section, () => React.ReactNode> = {
     platforms: () => <PlatformsPanel />,
     announcements: () => <AdminAnnouncements />,
+    rewards: () => <AdminRewards />,
     overview: renderOverview,
     registrations: () => <RegistrationsPanel />,
     houses: () => <HousesPanel />,
