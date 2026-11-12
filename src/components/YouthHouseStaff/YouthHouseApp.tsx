@@ -10,8 +10,9 @@ import { HouseEventsManager } from './HouseEventsManager';
 import { HouseTrainersManager } from './HouseTrainersManager';
 import { HouseNotifications } from './HouseNotifications';
 import { HouseYouthApprovals } from './HouseYouthApprovals';
+import { HouseYouthList } from './HouseYouthList';
 import { HouseRewards } from '../Rewards/RewardsManager';
-import { UserCheck as ApprovalIcon } from 'lucide-react';
+import { UserCheck as ApprovalIcon, ClipboardList as MembersIcon } from 'lucide-react';
 import { HouseReports } from './HouseReports';
 import { useHouseTodayLog, formatDuration, clock } from '../../lib/api/stats';
 import {
@@ -27,7 +28,7 @@ interface YouthHouseAppProps {
   onBack: () => void;
 }
 
-type ViewType = 'dashboard' | 'scanner' | 'checkinout' | 'events' | 'trainers' | 'approvals' | 'rewards' | 'notifications' | 'rooms' | 'reports';
+type ViewType = 'dashboard' | 'scanner' | 'checkinout' | 'events' | 'trainers' | 'approvals' | 'members' | 'rewards' | 'notifications' | 'rooms' | 'reports';
 
 interface NavItem {
   id: ViewType;
@@ -42,6 +43,7 @@ const navItems: NavItem[] = [
   { id: 'events', label: 'Tədbirlər', icon: <Calendar size={20} /> },
   { id: 'trainers', label: 'Təlimçilər', icon: <Users size={20} /> },
   { id: 'approvals', label: 'Gənclər', icon: <ApprovalIcon size={20} /> },
+  { id: 'members', label: 'Siyahı', icon: <MembersIcon size={20} /> },
   { id: 'rewards', label: 'Hədiyyələr', icon: <RewardIcon size={20} /> },
   { id: 'notifications', label: 'Bildirişlər', icon: <Bell size={20} /> },
   { id: 'rooms', label: 'Otaqlar', icon: <DoorOpen size={20} /> },
@@ -350,6 +352,10 @@ export function YouthHouseApp({ onBack }: YouthHouseAppProps) {
     <HouseRewards houseId={house?.status === 'approved' ? house.id : null} />
   );
 
+  const renderMembers = () => (
+    <HouseYouthList houseId={house?.status === 'approved' ? house.id : null} />
+  );
+
   const renderRooms = () => <RoomsManager />;
 
   const renderReports = () => (
@@ -372,6 +378,8 @@ export function YouthHouseApp({ onBack }: YouthHouseAppProps) {
         return renderTrainers();
       case 'approvals':
         return renderApprovals();
+      case 'members':
+        return renderMembers();
       case 'rewards':
         return renderRewards();
       case 'notifications':
