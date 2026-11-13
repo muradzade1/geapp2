@@ -8,6 +8,8 @@ import { YouthApp } from './components/Youth/YouthApp';
 import { YouthHouseApp } from './components/YouthHouseStaff/YouthHouseApp';
 import { TrainerApp } from './components/TrainerDashboard/TrainerApp';
 import AdminApp from './components/Admin/AdminApp';
+import { OfflineYouth } from './components/Offline/OfflineYouth'; // OFFLINE-PATCH
+import { SyncToast } from './components/Offline/SyncToast';
 
 type AccountRole = 'youth' | 'trainer' | 'youth_house' | 'admin';
 
@@ -40,7 +42,7 @@ function StatusScreen({ title, description, onBack }: { title: string; descripti
 }
 
 function AppShell() {
-  const { session, profile, loading, signOut } = useProfile();
+  const { session, profile, loading, offline, signOut } = useProfile();
   const [screen, setScreen] = useState<'landing' | 'auth'>('landing');
   const [requestedRole, setRequestedRole] = useState<AccountRole>('youth');
   const [recovery, setRecovery] = useState(STARTED_IN_RECOVERY && !RECOVERY_LINK_ERROR);
@@ -76,6 +78,17 @@ function AppShell() {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-600">Yüklənir...</div>;
   }
 
+  if (offline && session) {
+    if (profile?.role === 'youth') return <OfflineYouth />;
+    return (
+      <StatusScreen
+        title="İnternet yoxdur"
+        description="Bu hesab üçün internet bağlantısı lazımdır. Bağlantı bərpa olunandan sonra yenidən cəhd edin."
+        onBack={() => window.location.reload()}
+      />
+    );
+  }
+
   if (session && profile) {
     if (profile.role !== 'admin' && profile.status !== 'approved') {
       const description = profile.status === 'pending'
@@ -107,5 +120,5 @@ function AppShell() {
 }
 
 export default function App() {
-  return <ProfileProvider><AppShell /></ProfileProvider>;
+  return <ProfileProvider><AppShell /><SyncToast /></ProfileProvider>;
 }
