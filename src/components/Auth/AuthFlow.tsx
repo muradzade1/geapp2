@@ -255,7 +255,14 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     if (signInError || !signInData.session) {
       disarmLoginGate();
       setBusy(false);
-      setError('E-poçt və ya şifrə düzgün deyil.');
+      const raw = signInError?.message ?? '';
+      if (/failed to fetch|network|load failed|timeout/i.test(raw)) {
+        setError('İnternet bağlantısı yoxdur və ya zəifdir. Bağlantını yoxlayıb yenidən cəhd edin.');
+      } else if (/email not confirmed/i.test(raw)) {
+        setError('E-poçt ünvanı təsdiqlənməyib. Poçtunuza gələn təsdiq məktubunu yoxlayın.');
+      } else {
+        setError('E-poçt və ya şifrə düzgün deyil. E-poçtda səhv olmadığını və düzgün bölmədən (Gənc, Təlimçi, Gənclər Evi) daxil olduğunuzu yoxlayın. Şifrəni unutmusunuzsa, "Şifrəni unutmusunuz?" düyməsinə basın.');
+      }
       return;
     }
     const { data: profileRow } = await supabase
@@ -293,6 +300,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
   };
 
   const resetPassword = async () => {
+    if (busy) return;
     const email = (values.email ?? '').trim().toLowerCase();
     if (!email) {
       setError('Şifrəni yeniləmək üçün e-poçt ünvanınızı daxil edin.');
@@ -310,12 +318,16 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
       }
       return;
     }
-    setMessage('Bu e-poçt qeydiyyatlıdırsa, şifrəni yeniləmə məktubu göndərildi. Məktubdakı linki telefonun brauzerində açın, spam qovluğuna da baxın.');
+    setMessage('Bu e-poçt qeydiyyatlıdırsa, şifrəni yeniləmə məktubu göndərildi. Məktub bir az gec gələ bilər, "Spam" qovluğuna da baxın. Bir neçə məktub sifariş etmisinizsə, yalnız ən sonuncu məktubdakı linki açın.');
   };
 
   const register = async (event: FormEvent) => {
     event.preventDefault();
     resetFeedback();
+    if ((values.email ?? '').trim().toLowerCase() !== (values.emailConfirmation ?? '').trim().toLowerCase()) {
+      setError('E-poçt ünvanları eyni deyil. Hər iki xanaya eyni ünvanı yazın.');
+      return;
+    }
     const emailCheck = checkEmail(values.email ?? '');
     if (emailCheck.problem) {
       setError(emailCheck.problem);
@@ -323,7 +335,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     }
     if (emailCheck.suggestion) {
       // Domen səhvi: ünvanı düzəldib istifadəçidən təsdiq üçün yenidən basmasını istəyirik.
-      setValues((current) => ({ ...current, email: emailCheck.suggestion as string }));
+      setValues((current) => ({ ...current, email: emailCheck.suggestion as string, emailConfirmation: emailCheck.suggestion as string }));
       setError(`E-poçt ünvanında səhv ola bilər. Düzəldildi: ${emailCheck.suggestion}. Doğrudursa, yenidən "Qeydiyyatdan keç" düyməsinə basın, deyilsə düzəldin.`);
       return;
     }
@@ -449,12 +461,13 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
   const renderRegistrationFields = () => {
     const common = <>
       <div className="grid gap-4 sm:grid-cols-2">{input('Ad', 'firstName')}{input('Soyad', 'lastName')}</div>
-      <div className="grid gap-4 sm:grid-cols-2">{input('E-poçt', 'email', 'email')}{input('Mobil telefon', 'phone', 'tel')}</div>
+      <div className="grid gap-4 sm:grid-cols-2">{input('E-poçt', 'email', 'email')}{input('E-poçtun təkrarı', 'emailConfirmation', 'email')}</div>
+      <div className="grid gap-4 sm:grid-cols-2">{input('Mobil telefon', 'phone', 'tel')}</div>
       <div className="grid gap-4 sm:grid-cols-2">{input('Şifrə', 'password', 'password')}{input('Şifrənin təkrarı', 'passwordConfirmation', 'password')}</div>
     </>;
     if (role === 'youth') return <>{common}<div className="grid gap-4 sm:grid-cols-2">{input('Doğum tarixi', 'birthDate', 'date')}{input('Şəhər/Rayon', 'city')}</div>{genderSelect}{choiceSelect('Təhsil', 'education', EDUCATION_OPTIONS)}{choiceSelect('Hazırkı məşğulluq vəziyyətiniz', 'employmentStatus', EMPLOYMENT_OPTIONS)}{houseSelect('Gənclər Evi', 'youthHouseName')}</>;
     if (role === 'trainer') return <>{common}{choiceSelect('Təhsil', 'education', EDUCATION_OPTIONS)}{choiceSelect('Hazırkı məşğulluq vəziyyətiniz', 'employmentStatus', EMPLOYMENT_OPTIONS)}{input('İxtisas', 'specialization')}{input('Tədris istiqaməti', 'teachingDirection')}{input('İş yeri', 'workplace')}{input('İş təcrübəsi', 'workExperience')}<Field label="Qısa bio" name="bio" required={false} value={values.bio ?? ''} onChange={setValue(setValues, 'bio')}><textarea name="bio" value={values.bio ?? ''} onChange={(event) => setValue(setValues, 'bio')(event.target.value)} rows={3} className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50" /></Field></>;
-    return <>{houseSelect('Gənclər Evinin adı', 'houseName')}{input('Şəhər/Rayon', 'city')}{input('Ünvan', 'address')}{input('Telefon', 'phone', 'tel')}{input('E-poçt', 'email', 'email')}{input('Məsul şəxsin adı və soyadı', 'responsibleName')}{input('Məsul şəxsin e-poçtu', 'responsibleEmail', 'email')}<div className="grid gap-4 sm:grid-cols-2">{input('Şifrə', 'password', 'password')}{input('Şifrənin təkrarı', 'passwordConfirmation', 'password')}</div><input type="hidden" value={values.houseName ?? ''} />{!values.firstName && <input type="hidden" />}</>;
+    return <>{houseSelect('Gənclər Evinin adı', 'houseName')}{input('Şəhər/Rayon', 'city')}{input('Ünvan', 'address')}{input('Telefon', 'phone', 'tel')}{input('E-poçt', 'email', 'email')}{input('E-poçtun təkrarı', 'emailConfirmation', 'email')}{input('Məsul şəxsin adı və soyadı', 'responsibleName')}{input('Məsul şəxsin e-poçtu', 'responsibleEmail', 'email')}<div className="grid gap-4 sm:grid-cols-2">{input('Şifrə', 'password', 'password')}{input('Şifrənin təkrarı', 'passwordConfirmation', 'password')}</div><input type="hidden" value={values.houseName ?? ''} />{!values.firstName && <input type="hidden" />}</>;
   };
 
   if (screen === 'register-choice') {
@@ -474,7 +487,7 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
   return <AuthShell onBack={onBack}>
     <div className="mb-7 text-center"><div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">{isAdmin ? <ShieldCheck className="h-6 w-6" /> : <KeyRound className="h-6 w-6" />}</div><h1 className="text-2xl font-bold text-gray-900">{labels[role]}</h1><p className="mt-2 text-sm text-gray-500">Hesab məlumatlarınızla daxil olun</p></div>
     <form onSubmit={(event) => { persistRemember(); return signIn(event); }} className="space-y-4">{input(isAdmin ? 'E-poçt' : 'E-poçt və ya istifadəçi adı', 'email', 'email', true, undefined, 'username')}{input('Şifrə', 'password', 'password', true, undefined, 'current-password')}<label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />Məni xatırla</label><Feedback error={error} message={message} /><button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />}Daxil ol</button></form>
-    {!isAdmin && <div className="mt-5 flex items-center justify-between text-sm"><button type="button" onClick={resetPassword} className="font-medium text-emerald-700 hover:text-emerald-800">Şifrəni unutmusunuz?</button><button type="button" onClick={() => { resetFeedback(); setValues({}); setScreen('register-choice'); }} className="font-medium text-emerald-700 hover:text-emerald-800">Qeydiyyatdan keç</button></div>}
+    {!isAdmin && <div className="mt-5 flex items-center justify-between text-sm"><button type="button" disabled={busy} onClick={resetPassword} className="font-medium text-emerald-700 hover:text-emerald-800 disabled:cursor-not-allowed disabled:text-gray-400">Şifrəni unutmusunuz?</button><button type="button" onClick={() => { resetFeedback(); setValues({}); setScreen('register-choice'); }} className="font-medium text-emerald-700 hover:text-emerald-800">Qeydiyyatdan keç</button></div>}
   </AuthShell>;
 }
 
