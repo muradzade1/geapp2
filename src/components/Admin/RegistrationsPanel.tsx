@@ -4,6 +4,7 @@ import { exportPdf, exportXlsx, type ExportTable } from '../../lib/exportFile';
 import { AlertTriangle, CheckCircle2, Loader2, Pencil, RefreshCcw, Trash2, X, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { PlatformProfile } from '../../lib/profile';
+import { ResetPasswordButton } from './ResetPasswordButton';
 
 
 /** Hesabın profil şəkillərini Storage API ilə silir. */
@@ -442,6 +443,7 @@ export function RegistrationsPanel() {
                     >
                       <Pencil className="h-4 w-4" />Redaktə
                     </button>
+                    <ResetPasswordButton userId={row.id} name={displayName} email={row.email} />
                     <button
                       disabled={isBusy}
                       onClick={() => { setDeleteTarget(row); setConfirmWord(''); setDeleteError(null); }}

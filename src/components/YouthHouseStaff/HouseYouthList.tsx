@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileSpreadsheet, FileText, Loader2, RefreshCw, Search, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportPdf, exportXlsx, type ExportTable } from '../../lib/exportFile';
+import { ResetPasswordButton } from '../Admin/ResetPasswordButton';
 
 interface Props {
   houseId: string | null;
@@ -271,6 +272,7 @@ export function HouseYouthList({ houseId }: Props) {
               <div className="flex shrink-0 items-center gap-2">
                 <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{row.points} xal</span>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[row.status]}`}>{STATUS_LABEL[row.status]}</span>
+                <ResetPasswordButton userId={row.id} name={fullName(row)} email={row.email} compact />
               </div>
             </div>
           );
