@@ -1,6 +1,7 @@
 import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Camera, Loader2, Pencil, Save, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { compressImage } from '../../lib/image';
 import { useProfile, type PlatformProfile } from '../../lib/profile';
 
 interface AccountProfileCardProps {
@@ -53,9 +54,10 @@ export function AccountProfileCard({ title, role, editableFields, extras }: Acco
     }
     setError('');
     setUploading(true);
-    const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const photo = await compressImage(file);
+    const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg';
     const path = `${profile.id}/avatar-${Date.now()}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from('account-photos').upload(path, file, { upsert: true, contentType: file.type });
+    const { error: uploadError } = await supabase.storage.from('account-photos').upload(path, photo, { upsert: true, contentType: photo.type });
     if (!uploadError) {
       await supabase.from('profiles').update({ avatar_path: path }).eq('id', profile.id);
       await refresh();

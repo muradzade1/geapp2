@@ -96,8 +96,34 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       setAvatarUrl(null);
       return;
     }
-    const { data } = await supabase.storage.from('account-photos').createSignedUrl(avatarPath, 60 * 60);
-    setAvatarUrl(data?.signedUrl ?? null);
+    // Eyni şəkil üçün link 6 gün yenidən istifadə olunur: hər açılışda yeni link yaransa,
+    // brauzer keşi işləmir və şəkil hər dəfə yenidən endirilir (Egress trafiki).
+    const cacheKey = 'ge_avatar_url_v1';
+    try {
+      const raw = window.localStorage.getItem(cacheKey);
+      if (raw) {
+        const cached = JSON.parse(raw) as { path: string; url: string; until: number };
+        if (cached.path === avatarPath && cached.until > Date.now()) {
+          setAvatarUrl(cached.url);
+          return;
+        }
+      }
+    } catch {
+      /* keş oxunmasa, yeni link alınır */
+    }
+    const { data } = await supabase.storage.from('account-photos').createSignedUrl(avatarPath, 60 * 60 * 24 * 7);
+    const signed = data?.signedUrl ?? null;
+    setAvatarUrl(signed);
+    if (signed) {
+      try {
+        window.localStorage.setItem(
+          cacheKey,
+          JSON.stringify({ path: avatarPath, url: signed, until: Date.now() + 6 * 24 * 60 * 60 * 1000 }),
+        );
+      } catch {
+        /* keş yazılmasa da tətbiq işləyir */
+      }
+    }
   };
 
   const loadProfile = async (currentSession: Session | null, provisional = false) => {

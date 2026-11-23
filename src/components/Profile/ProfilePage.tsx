@@ -6,6 +6,7 @@ import { useYouthStats } from '../../lib/api/stats';
 import { useMyVisits } from '../../lib/api/stats';
 import { formatDuration, dateClock, clock } from '../../lib/api/stats';
 import { supabase } from '../../lib/supabase';
+import { compressImage } from '../../lib/image';
 
 type BadgeRow = {
   id: string;
@@ -299,9 +300,11 @@ export function ProfilePage() {
                         const file = event.target.files?.[0];
                         event.target.value = '';
                         if (!file || !profile) return;
-                        const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+                        if (!file.type.startsWith('image/')) return;
+                        const photo = await compressImage(file);
+                        const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg';
                         const path = `${profile.id}/avatar-${Date.now()}.${extension}`;
-                        const { error } = await supabase.storage.from('account-photos').upload(path, file, { upsert: true, contentType: file.type });
+                        const { error } = await supabase.storage.from('account-photos').upload(path, photo, { upsert: true, contentType: photo.type });
                         if (!error) {
                           await supabase.from('profiles').update({ avatar_path: path }).eq('id', profile.id);
                           await refresh();

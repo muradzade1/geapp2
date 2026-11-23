@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { fullName, useProfile } from '../../lib/profile';
 import { supabase } from '../../lib/supabase';
+import { compressImage } from '../../lib/image';
 import { DeleteAccountCard } from '../Profile/DeleteAccountCard';
 
 const EDUCATION_OPTIONS = [
@@ -125,11 +126,12 @@ export function TrainerProfile() {
     setUploading(true);
     setError(null);
     try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const photo = await compressImage(file);
+      const ext = (photo.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${profile.id}/avatar-${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from('account-photos')
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .upload(path, photo, { upsert: true, contentType: photo.type });
       if (uploadError) throw uploadError;
       const { error: updateError } = await supabase.from('profiles').update({ avatar_path: path }).eq('id', profile.id);
       if (updateError) throw updateError;
