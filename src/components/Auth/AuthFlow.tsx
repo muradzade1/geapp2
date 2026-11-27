@@ -187,6 +187,8 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     return carried;
   });
   const [busy, setBusy] = useState(false);
+  // Eyni telefonla artıq hesab olduqda xəbərdarlıq bir dəfə göstərilir; təkrar basanda davam edir.
+  const [phoneWarned, setPhoneWarned] = useState('');
   useEffect(() => {
     const onMismatch = (event: Event) => {
       setError(String((event as CustomEvent).detail ?? ''));
@@ -362,6 +364,20 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     if (values.password !== values.passwordConfirmation) {
       setError('Şifrələr eyni deyil.');
       return;
+    }
+    if (role === 'youth') {
+      const phoneDigits = (values.phone ?? '').replace(/\D/g, '');
+      if (phoneDigits.length >= 9 && phoneWarned !== phoneDigits) {
+        setBusy(true);
+        // Yoxlama alınmasa (şəbəkə/funksiya xətası) qeydiyyat bloklanmır.
+        const { data: phoneUsed, error: phoneError } = await supabase.rpc('phone_in_use', { p_phone: values.phone ?? '' });
+        setBusy(false);
+        if (!phoneError && phoneUsed === true) {
+          setPhoneWarned(phoneDigits);
+          setError('Bu telefon nömrəsi ilə artıq qeydiyyat var. Əvvəl qeydiyyatdan keçmisinizsə, təkrar qeydiyyat etməyin: giriş səhifəsinə qayıdıb daxil olun və ya "Şifrəni unutmusunuz?" düyməsindən istifadə edin. Nömrə ailə üzvünüzə və ya yaxınınıza məxsusdursa, yenidən "Qeydiyyatdan keç" düyməsinə basın.');
+          return;
+        }
+      }
     }
     setBusy(true);
     const payload = {
