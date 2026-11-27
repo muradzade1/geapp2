@@ -1,3 +1,4 @@
+import { startPolling } from '../poll';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 
@@ -90,8 +91,7 @@ export function useYouthStats(refreshMs = 30000) {
   useEffect(() => {
     void load();
     if (!refreshMs) return;
-    const timer = setInterval(() => void load(), refreshMs);
-    return () => clearInterval(timer);
+    return startPolling(() => void load(), refreshMs);
   }, [load, refreshMs]);
 
   return { stats, loading, error, reload: load };
@@ -165,8 +165,7 @@ export function useHouseTodayLog(houseId: string | null, refreshMs = 30000) {
   useEffect(() => {
     void load();
     if (!refreshMs || !houseId) return;
-    const timer = setInterval(() => void load(), refreshMs);
-    return () => clearInterval(timer);
+    return startPolling(() => void load(), refreshMs);
   }, [load, refreshMs, houseId]);
 
   return { rows, loading, error, reload: load };

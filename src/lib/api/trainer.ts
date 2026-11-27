@@ -1,3 +1,4 @@
+import { startPolling } from '../poll';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 
@@ -136,8 +137,7 @@ export function useTrainerStats(refreshMs = 60000) {
   useEffect(() => {
     void load();
     if (!refreshMs) return;
-    const timer = setInterval(() => void load(), refreshMs);
-    return () => clearInterval(timer);
+    return startPolling(() => void load(), refreshMs);
   }, [load, refreshMs]);
 
   return { stats, loading, reload: load };

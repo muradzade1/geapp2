@@ -1,3 +1,4 @@
+import { startPolling } from '../poll';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 
@@ -181,8 +182,7 @@ export function useHouseDashboard(houseId: string | null, refreshMs = 30000) {
   useEffect(() => {
     void load();
     if (!refreshMs || !houseId) return;
-    const timer = setInterval(() => void load(), refreshMs);
-    return () => clearInterval(timer);
+    return startPolling(() => void load(), refreshMs);
   }, [load, refreshMs, houseId]);
 
   return { data, loading, error, reload: load };

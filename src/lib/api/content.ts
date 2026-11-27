@@ -1,3 +1,4 @@
+import { startPolling } from '../poll';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { playNotificationSound, DEFAULT_SOUND_SETTINGS, type SoundSettings } from './sound';
@@ -155,8 +156,7 @@ export function useNotifications(refreshMs = 30000) {
   useEffect(() => {
     void load();
     if (!refreshMs) return;
-    const timer = setInterval(() => void load(), refreshMs);
-    return () => clearInterval(timer);
+    return startPolling(() => void load(), refreshMs);
   }, [load, refreshMs]);
 
   const markRead = useCallback(

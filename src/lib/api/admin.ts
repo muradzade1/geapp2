@@ -1,3 +1,4 @@
+import { startPolling } from '../poll';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 
@@ -139,8 +140,7 @@ export function useAdminDashboard(refreshMs = 60000) {
   useEffect(() => {
     void load();
     if (!refreshMs) return;
-    const timer = setInterval(() => void load(), refreshMs);
-    return () => clearInterval(timer);
+    return startPolling(() => void load(), refreshMs);
   }, [load, refreshMs]);
 
   return { stats, series, loading, error, reload: load };

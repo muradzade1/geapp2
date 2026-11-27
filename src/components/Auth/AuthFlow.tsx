@@ -165,6 +165,11 @@ function setValue(setter: Dispatch<SetStateAction<Record<string, string>>>, name
   return (value: string) => setter((current) => ({ ...current, [name]: value }));
 }
 
+/** Server tərəfi problem (402 limit/ödəniş məhdudiyyəti, 5xx nasazlıq): istifadəçinin səhvi deyil. */
+const isServiceUnavailable = (status?: number | null) => status === 402 || (typeof status === 'number' && status >= 500);
+const SERVICE_UNAVAILABLE_MESSAGE =
+  'Xidmət müvəqqəti əlçatmazdır. Bu sizin səhviniz deyil. Bir neçə dəqiqə sonra yenidən cəhd edin.';
+
 export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
   const [screen, setScreen] = useState<Screen>('login');
   useBackHandler(() => {
@@ -256,7 +261,9 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
       disarmLoginGate();
       setBusy(false);
       const raw = signInError?.message ?? '';
-      if (/failed to fetch|network|load failed|timeout/i.test(raw)) {
+      if (isServiceUnavailable(signInError?.status)) {
+        setError(SERVICE_UNAVAILABLE_MESSAGE);
+      } else if (/failed to fetch|network|load failed|timeout/i.test(raw)) {
         setError('İnternet bağlantısı yoxdur və ya zəifdir. Bağlantını yoxlayıb yenidən cəhd edin.');
       } else if (/email not confirmed/i.test(raw)) {
         setError('E-poçt ünvanı təsdiqlənməyib. Poçtunuza gələn təsdiq məktubunu yoxlayın.');
@@ -311,7 +318,9 @@ export function AuthFlow({ initialRole, onBack }: AuthFlowProps) {
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: WEB_URL });
     setBusy(false);
     if (resetError) {
-      if (resetError.status === 429 || /rate limit/i.test(resetError.message)) {
+      if (isServiceUnavailable(resetError.status)) {
+        setError(SERVICE_UNAVAILABLE_MESSAGE);
+      } else if (resetError.status === 429 || /rate limit/i.test(resetError.message)) {
         setError('Çox sayda sorğu göndərilib. Bir neçə dəqiqə sonra yenidən cəhd edin.');
       } else {
         setError('Şifrə yeniləmə məktubunu göndərmək mümkün olmadı. Bir az sonra yenidən cəhd edin.');

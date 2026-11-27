@@ -1,3 +1,4 @@
+import { startPolling } from '../poll';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 
@@ -35,8 +36,7 @@ export function useAdminCharts(refreshMs = 120000) {
   useEffect(() => {
     void load();
     if (!refreshMs) return;
-    const timer = setInterval(() => void load(), refreshMs);
-    return () => clearInterval(timer);
+    return startPolling(() => void load(), refreshMs);
   }, [load, refreshMs]);
 
   return { charts, loading, reload: load };
