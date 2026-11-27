@@ -83,8 +83,9 @@ export function YouthHeader({ currentView, onNavigate, onBack }: YouthHeaderProp
               <button onClick={() => onNavigate('profile')} className="p-1.5">
                 {avatarUrl ? <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full border-2 border-gray-100 object-cover" /> : <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-100 bg-emerald-100 text-sm font-semibold text-emerald-700">{initial}</span>}
               </button>
-              <button onClick={onBack} className="p-2 text-gray-400 hover:text-gray-600 transition-colors" title="Çıxış">
+              <button onClick={onBack} className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900" title="Çıxış" aria-label="Çıxış">
                 <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Çıxış</span>
               </button>
             </div>
           </div>
@@ -134,6 +135,15 @@ export function YouthHeader({ currentView, onNavigate, onBack }: YouthHeaderProp
                 );
               })}
             </nav>
+            <div className="border-t border-gray-100 p-2">
+              <button
+                onClick={() => { setMobileOpen(false); onBack(); }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Çıxış</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
