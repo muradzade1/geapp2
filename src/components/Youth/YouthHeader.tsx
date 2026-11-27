@@ -52,7 +52,7 @@ export function YouthHeader({ currentView, onNavigate, onBack }: YouthHeaderProp
               </button>
             </div>
 
-            <nav className="hidden xl:flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto px-2">
+            <nav className="hidden xl:flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = currentView === item.id;
